@@ -2681,6 +2681,14 @@ ul.main-nav li a:hover {
 		margin-left: .4em;
 	}
 
+	.agileits_w3layouts_mail p {
+		font-size: 12px;
+		margin-top: 1em;
+		margin-bottom: 0;
+		margin-right: 9em;
+		margin-left: 0;
+	}
+
 	.w3_agile_header_left h2 span {
 		padding: .3em 0.5em;
 	}
@@ -2695,8 +2703,17 @@ ul.main-nav li a:hover {
 		top: 3%;
 	}
 
-	.agile_logo h1 a {
+	.agile_logo {
+		margin-left: 0em;
+	}
+
+	.agile_logo h1 a:before {
+		margin-left: 0em;
+		margin-top: 0em;
 		font-size: .8em;
+		padding-left: 2.2em;
+		padding-top: -10em;
+		display: inline-block;
 	}
 	#sideNav ul li a:before {
 		font-size: 1.3em;
