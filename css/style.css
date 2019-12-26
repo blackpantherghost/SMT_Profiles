@@ -80,10 +80,11 @@ a {
 	color: #f3a21d;
 	text-decoration: none;
 	position: relative;
-	padding-left: 1.3em;
+	padding-left: 1.8em;
+	padding-top: .35em;
 	display: inline-block;
 }
-.agile_logo h1 a:before {
+/*.agile_logo h1 a:before {
 	content: "\f1ae";
 	position: absolute;
 	top: 11%;
@@ -95,7 +96,27 @@ a {
 	line-height: 1.4em;
 	font-family: FontAwesome;
 	color: #fff;
+}*/
+
+.agile_logo h1 a:before {
+	content: "";
+	text-decoration: none;
+	font-size: .5em;
+	top: 25%;
+	left: 0%;
+	position: absolute;
+	overflow: hidden;
+	z-index: 999;
+	width: 70px;
+	height: 70px;
+	border: none;
+	text-indent: 100%;
+	margin-left: -5px;
+	margin-top: -10px;
+	background: url(../images/smt_logo.png) no-repeat 0px 0px;
+	background-size: cover;
 }
+
 .agile_logo h1 a span {
 	display: block;
 	font-size: .5em;
@@ -103,21 +124,6 @@ a {
 	text-align: center;
 	color: #fff;
 }
-/*
-.to_logo {
-	display: none;
-	text-decoration: none;
-	position: fixed;
-	bottom: 20px;
-	right: 2%;
-	overflow: hidden;
-	z-index: 999;
-	width: 32px;
-	height: 32px;
-	border: none;
-	text-indent: 100%;
-	background: url(../images/smt_logo.png) no-repeat 0px 0px;
-}*/
 
 .agileits_w3layouts_mail {
 	float: right;
@@ -1775,16 +1781,29 @@ ul.main-nav li a:hover {
 }
 @media (max-width: 1024px) {
 	.agileits_w3layouts_mail {
-		margin: 1.8em 0 0 7em;
+		/* margin: 1.8em 0 0 1em; */
+		margin-top: -2em;
+		margin-bottom: 0;
+		margin-right: 28em;
+		margin-left: 2em;
 	}
+
 	.agileinfo_banner_info h3 {
 		font-size: 4em;
 	}
+
 	.agile_logo h1 a {
+		margin-left: 5px;
+		margin-top: 20px;
 		font-size: 1.2em;
+		padding-left: 2.2em;
+		padding-top: -10em;
+		display: inline-block;
 	}
+
 	.w3_agileits_progress_right {
-		padding: 5em 3em 0em 3em;
+		padding-left: 2.2em;
+		/* padding: 5em 3em 0em 3em; */
 	}
 	.box,
 	.box .overbox {
@@ -1954,6 +1973,13 @@ ul.main-nav li a:hover {
 	}
 }
 @media (max-width: 768px) {
+	.agileits_w3layouts_mail {
+		/* margin: 1.8em 0 0 1em; */
+		margin-top: -2em;
+		margin-bottom: 0;
+		margin-right: 25em;
+		margin-left: .5em;
+	}
 	.wthree_nav_menu {
 		top: 5.5%;
 	}
@@ -2269,8 +2295,18 @@ ul.main-nav li a:hover {
 	}
 }
 @media (max-width: 480px) {
+	.agileits_w3layouts_mail {
+		/* margin: 1.8em 0 0 1em; */
+		margin-top: 1em;
+		margin-bottom: 0;
+		margin-right: 12.5em;
+		margin-left: 0;
+	}
 	.w3_agile_header_left {
-		margin: 0;
+		margin-top: 0;
+		margin-bottom: 0;
+		margin-right: 10em;
+		margin-left: .4em;
 	}
 	.wthree_nav_menu {
 		top: 3%;
@@ -2558,7 +2594,29 @@ ul.main-nav li a:hover {
 }
 @media (max-width: 375px) {
 	.agile_logo h1 a:before {
-		line-height: 1.5em;
+		/* font-size: .5em;
+		top: 25%;
+		left: 0%;
+		position: absolute;
+		overflow: hidden;
+		z-index: 999;
+		width: 70px;
+		height: 70px;
+		border: none;
+		text-indent: 100%;
+		margin-left: -5px;
+		margin-top: -10px; */
+
+		margin-left: 5px;
+		margin-top: 0px;
+		font-size: .5em;
+		padding-left: 2.2em;
+		padding-top: -10em;
+		width: 60px;
+		height: 60px;
+		background-size: cover;
+		display: inline-block;
+		/* line-height: 1.5em; */
 	}
 	.agileinfo_banner_info {
 		width: 100%;
@@ -2569,13 +2627,41 @@ ul.main-nav li a:hover {
 	.film_roll_wrapper img {
 		border: 5px solid white;
 	}
-}
-@media (max-width: 320px) {
+
 	.w3_agile_header_left h2 span {
 		padding: .3em 0.5em;
 	}
+
+	.w3_agile_header {
+		padding: 1.5em 0 0;
+	}
 	.w3_agile_header_left h2 {
-		font-size: 13px;
+		font-size: 1em;
+		line-height: 1.5em;
+	}
+
+	.agileits_w3layouts_mail p {
+		font-size: 12px;
+		margin-top: 1em;
+		margin-bottom: 0;
+		margin-right: 12.5em;
+		margin-left: 0;
+	}
+}
+@media (max-width: 320px) {
+	.w3_agile_header_left {
+		margin-top: 0;
+		margin-bottom: 0;
+		margin-right: 10em;
+		margin-left: .4em;
+	}
+
+	.w3_agile_header_left h2 span {
+		padding: .3em 0.5em;
+	}
+
+	.w3_agile_header_left h2 {
+		font-size: 0.74em;
 	}
 	.w3_agile_header {
 		padding: 1.5em 0 0;
@@ -2583,9 +2669,7 @@ ul.main-nav li a:hover {
 	.wthree_nav_menu {
 		top: 3%;
 	}
-	.agileits_w3layouts_mail p {
-		font-size: 12px;
-	}
+
 	.agile_logo h1 a {
 		font-size: .8em;
 	}
