@@ -43,6 +43,34 @@ a {
 	-o-transition: 0.5s ease-in;
 	transition: 0.5s ease-in;
 }
+
+/*-----------------------------------------------------------------------------------*/
+/*    1.     Header_area
+/*-----------------------------------------------------------------------------------*/
+
+.header_top {
+	background-color: #333;
+}
+.header-top-left p {
+	color: rgb(255, 255, 255);
+	float: left;
+	line-height: 60px;
+	margin-bottom: 0;
+	margin-right: 38px;
+}
+.header-top-left i {
+	margin-right: 10px;
+	color: #e03e25;
+}
+.social-icon a {
+	color: #fff;
+	line-height: 60px;
+	padding-left: 15px;
+}
+.social-icon a:hover i {
+	color: #e03e25;
+}
+
 /*-- banner --*/
 .banner {
 	background: url(../images/banner.jpg) no-repeat 0px 0px;
@@ -84,19 +112,6 @@ a {
 	padding-top: .35em;
 	display: inline-block;
 }
-/*.agile_logo h1 a:before {
-	content: "\f1ae";
-	position: absolute;
-	top: 11%;
-	left: 0%;
-	width: 45px;
-	height: 45px;
-	border: 2px solid #f3a21d;
-	text-align: center;
-	line-height: 1.4em;
-	font-family: FontAwesome;
-	color: #fff;
-}*/
 
 .agile_logo h1 a:before {
 	content: "";
@@ -130,6 +145,11 @@ a {
 	margin: 1.8em 0 0;
 }
 .agileits_w3layouts_mail p {
+	/* font-size: 14px;
+	margin-top: 0em;
+	margin-bottom: 0em;
+	margin-right: 0em;
+	margin-left: -12em; */
 	color: #fff;
 }
 .agileits_w3layouts_mail p i {
@@ -146,7 +166,7 @@ a {
 /*-- menu --*/
 .wthree_nav_menu {
 	position: fixed;
-	top: 7%;
+	top: 9%;
 	right: 0;
 	z-index: 999;
 }
@@ -223,7 +243,7 @@ a {
 #sideNav {
 	position: fixed;
 	right: -108px;
-	top: 12.2%;
+	top: 15%;
 	width: 108px;
 	height: 100%;
 	background-color: #212121;
@@ -1664,6 +1684,7 @@ ul.main-nav li a:hover {
 		float: left;
 		margin: 1.8em 0 0 15em;
 	}
+
 	.w3_agileits_progress_right {
 		padding: 1em 4em 0em 4em;
 	}
@@ -1719,6 +1740,7 @@ ul.main-nav li a:hover {
 	.agileits_w3layouts_mail {
 		margin: 1.8em 0 0 9em;
 	}
+
 	.agile_logo {
 		margin-left: 9em;
 	}
