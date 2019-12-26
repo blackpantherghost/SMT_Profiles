@@ -2434,6 +2434,13 @@ ul.main-nav li a:hover {
 	.agileits_w3layouts_mail {
 		margin: 1.7em 0 0 0;
 	}
+	.agileits_w3layouts_mail p {
+		font-size: 12px;
+		margin-top: 1em;
+		margin-bottom: 0;
+		margin-right: 16em;
+		margin-left: 0;
+	}
 	.agileinfo_banner_info {
 		width: 92%;
 	}
