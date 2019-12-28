@@ -102,8 +102,8 @@ a {
 	position: absolute;
 	overflow: hidden;
 	z-index: 999;
-	width: 70px;
-	height: 70px;
+	width: 80px;
+	height: 80px;
 	border: none;
 	text-indent: 100%;
 	margin-left: -5px;
@@ -120,6 +120,111 @@ a {
 	color: #fff;
 }
 
+.ptb--100 {
+	margin-top: -5em;
+	margin-bottom: 0;
+	/* padding: 100px 0; */
+}
+
+.single-service {
+	text-align: center;
+	padding: 30px 15px;
+	border-bottom: 1px solid transparent;
+	-webkit-transition: all 0.3s ease 0s;
+	transition: all 0.3s ease 0s;
+}
+
+.single-service:hover {
+	border-bottom: 2px solid #e03e25;
+	box-shadow: 0px 0px 34px rgba(0, 0, 0, 0.08);
+}
+
+.single-service .icon {
+	font-size: 60px;
+	color: #1c2069;
+	margin-bottom: 29px;
+}
+
+.single-service h4 {
+	font-size: 20px;
+	letter-spacing: 0;
+	color: #626564;
+	margin-bottom: 12px;
+	font-weight: 500;
+}
+
+.single-service p {
+	color: #777;
+	font-size: 16px;
+}
+
+/* ANIMATED BUTTONS */
+/* BT WHITE */
+.des-button-white {
+	border: none;
+	font-family: Open Sans;
+	font-size: 14px;
+	color: inherit;
+	cursor: pointer;
+	padding: 13px 30px;
+	display: inline-block;
+	margin: 15px 5px;
+	text-transform: uppercase;
+	letter-spacing: 0;
+	font-weight: 600;
+	outline: none;
+	position: relative;
+	-webkit-transition: all 0.3s;
+	-moz-transition: all 0.3s;
+	transition: all 0.3s;
+	border: 1px solid #fff;
+	background: transparent;
+	color: #fff;
+}
+
+.des-button-white:after {
+	content: '';
+	position: absolute;
+	z-index: 1;
+	-webkit-transition: all 0.3s;
+	-moz-transition: all 0.3s;
+	transition: all 0.3s;
+}
+.des-button-white span {
+	z-index: 2;
+	position: relative;
+}
+.des-button-white-1d:hover,
+.des-button-white-1d:active {
+	color: #e03e25;
+}
+.des-button-white-1d:after {
+	width: 0;
+	height: 103%;
+	top: 50%;
+	left: 50%;
+	background: #fff;
+	opacity: 0;
+	-webkit-transform: translateX(-50%) translateY(-50%);
+	-moz-transform: translateX(-50%) translateY(-50%);
+	-ms-transform: translateX(-50%) translateY(-50%);
+	transform: translateX(-50%) translateY(-50%);
+}
+.des-button-white-1d:hover:after {
+	width: 102%;
+	opacity: 1;
+}
+
+.des-button-white-1d:active:after {
+	width: 101%;
+	opacity: 1;
+}
+
+/* Control Button Font Size */
+.des-button-white {
+	padding: 8px 14px;
+	font-size: 16px;
+}
 /*-- menu --*/
 .wthree_nav_menu {
 	position: fixed;

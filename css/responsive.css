@@ -4,6 +4,15 @@
 
 /* Tablet Layout: 768px. */
 @media only screen and (min-width: 768px) and (max-width: 991px) {
+	.single-service {
+		margin-left: 6em;
+		text-align: center;
+		/* padding: 2px 15px; */
+	}
+
+	.ptb--100 {
+		margin-top: -5em;
+	}
 }
 /* Mobile Layout: 320px. */
 @media only screen and (max-width: 767px) {
@@ -16,6 +25,14 @@
 		margin-right: 5px;
 		font-size: 13px;
 	}
+
+	.single-service {
+		padding: 2px 15px;
+	}
+
+	.ptb--100 {
+		margin-top: -5em;
+	}
 }
 
 /* Wide Mobile Layout: 480px. */
@@ -25,6 +42,7 @@
 	}
 }
 
+/* Mobile Mid Resolution */
 @media only screen and (min-width: 200px) and (max-width: 480px) {
 	.wthree_nav_menu a,
 	#sideNav a {
@@ -39,6 +57,15 @@
 	#sideNav.showFullMenu li,
 	#sideNav.showFullMenu a {
 		width: 100%;
+	}
+
+	.single-service {
+		/* margin-bottom: 0 */
+		padding: .03em 15px;
+	}
+
+	.ptb--100 {
+		margin-top: -2em;
 	}
 }
 
