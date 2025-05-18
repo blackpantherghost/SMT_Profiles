@@ -1,10 +1,3 @@
-/*
-  FBX Export Script
-  This script exports selected objects to FBX format using a specified preset file
-  
-  Created: May 18, 2025
-*/
-
 -- UI Setup
 rollout FBXExportRollout "FBX Export Tool" width:400 height:300
 (
@@ -90,19 +83,28 @@ rollout FBXExportRollout "FBX Export Tool" width:400 height:300
                 )
             )
             
-            -- Setup export options
-            exporterPlugin = exporterInterface.GetExporter #("Autodesk","FBX")
+            -- Setup export options using the proper way to access FBX exporter
+            -- Get the FBX exporter class ID
+            FBXExporterClassID = dotNetClass "Autodesk.Max.Plugins.ClassID" 1608512435 1109316473
+            
+            -- Get the FBX exporter
+            exporterPlugin = exporterPlugin.create FBXExporterClassID
             if exporterPlugin == undefined then
             (
                 txt_status.text = "Error: FBX exporter not found!"
                 return false
             )
             
-            -- Apply preset
-            exporterPlugin.LoadPreset presetPath
+            -- Apply preset if the preset file exists
+            if ((dotNetClass "System.IO.File").Exists presetPath) then
+            (
+                -- Load the preset using FBX export options
+                FBXExportSetup = dotNetObject "Autodesk.Max.Plugin.IGameExporter" 
+                FBXExportSetup.LoadPresets presetPath
+            )
             
             -- Export the file
-            exportFile exportPath #noPrompt selectedOnly:useSelected using:exporterPlugin
+            exportFile exportPath #noPrompt selectedOnly:useSelected using:"FBX"
             
             txt_status.text = "Success: Exported to " + exportPath
             return true
