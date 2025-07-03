@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                                QCheckBox, QComboBox, QFrame, QTabWidget, 
                                QGridLayout, QSizePolicy, QSpacerItem, QTextEdit,
-                               QScrollArea, QGraphicsOpacityEffect)
+                               QScrollArea, QGraphicsOpacityEffect, QSplitter)
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QRect, QEasingCurve, QTimer
 from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon
 
@@ -22,37 +22,55 @@ class SeparatorLine(QFrame):
             }
         """)
 
-class LogWindow(QWidget):
+class LogPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(350, 400)
-        
-        # Setup UI
+        self.setMinimumWidth(50)  # Minimum width when collapsed
+        self.setMaximumWidth(400)  # Maximum width when expanded
+        self.is_expanded = False
         self.setup_ui()
-        
-        # Animation
-        self.animation = QPropertyAnimation(self, b"geometry")
-        self.animation.setDuration(300)
-        self.animation.setEasingCurve(QEasingCurve.OutCubic)
-        
-        # Initially hidden
-        self.hide()
     
     def setup_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
         
-        # Header
+        # Header with toggle button
         header_layout = QHBoxLayout()
-        title = QLabel("Validation Log")
-        title.setFont(QFont("Arial", 14, QFont.Bold))
-        title.setStyleSheet("color: #2196F3; margin-bottom: 10px;")
+        header_layout.setContentsMargins(0, 0, 0, 0)
         
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(25, 25)
-        close_btn.setStyleSheet("""
+        # Toggle button (always visible)
+        self.toggle_btn = QPushButton("◀")
+        self.toggle_btn.setFixedSize(30, 30)
+        self.toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        self.toggle_btn.clicked.connect(self.toggle_panel)
+        header_layout.addWidget(self.toggle_btn)
+        
+        # Title (hidden when collapsed)
+        self.title_label = QLabel("Validation Log")
+        self.title_label.setFont(QFont("Arial", 12, QFont.Bold))
+        self.title_label.setStyleSheet("color: #2196F3; margin-left: 10px;")
+        self.title_label.setVisible(False)
+        header_layout.addWidget(self.title_label)
+        
+        header_layout.addStretch()
+        
+        # Close button (hidden when collapsed)
+        self.close_btn = QPushButton("×")
+        self.close_btn.setFixedSize(25, 25)
+        self.close_btn.setStyleSheet("""
             QPushButton {
                 background-color: #ff4444;
                 color: white;
@@ -65,84 +83,131 @@ class LogWindow(QWidget):
                 background-color: #cc0000;
             }
         """)
-        close_btn.clicked.connect(self.slide_out)
+        self.close_btn.clicked.connect(self.collapse_panel)
+        self.close_btn.setVisible(False)
+        header_layout.addWidget(self.close_btn)
         
-        header_layout.addWidget(title)
-        header_layout.addStretch()
-        header_layout.addWidget(close_btn)
         layout.addLayout(header_layout)
         
-        # Log content
+        # Log content (hidden when collapsed)
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setStyleSheet("""
             QTextEdit {
-                background-color: #f8f8f8;
-                border: 1px solid #e0e0e0;
+                background-color: #2d3748;          # CHANGED: Dark background
+                color: #e2e8f0;                     # CHANGED: Light text color
+                border: 1px solid #4a5568;          # CHANGED: Dark border
                 border-radius: 6px;
-                padding: 10px;
-                font-family: 'Courier New', monospace;
+                padding: 12px;                      # CHANGED: Increased padding
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;  # CHANGED: Better fonts
                 font-size: 11px;
+                line-height: 1.4;                   # CHANGED: Better line spacing
+            }
+            QTextEdit:focus {
+                border-color: #2196F3;
+                outline: none;
+            }
+            QScrollBar:vertical {                   # CHANGED: Added custom scrollbar
+                background-color: #4a5568;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #718096;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0aec0;
             }
         """)
+        self.log_text.setVisible(False)
         
         # Sample log messages
         log_messages = [
-            "[INFO] Starting validation process...",
-            "[CHECK] Pivot validation: PASSED",
-            "[CHECK] UV mapping validation: PASSED", 
-            "[CHECK] Scale validation: PASSED",
-            "[WARNING] Material 'Material_01' has no diffuse map",
-            "[INFO] PBR assignment completed",
-            "[SUCCESS] All validations completed",
-            "[INFO] Ready for export..."
+            "<span style='color: #63b3ed;'>[INFO]</span> <span style='color: #e2e8f0;'>Starting validation process...</span>",
+            "<span style='color: #68d391;'>[CHECK]</span> <span style='color: #e2e8f0;'>Pivot validation:</span> <span style='color: #68d391;'>PASSED</span>",
+            "<span style='color: #68d391;'>[CHECK]</span> <span style='color: #e2e8f0;'>UV mapping validation:</span> <span style='color: #68d391;'>PASSED</span>", 
+            "<span style='color: #68d391;'>[CHECK]</span> <span style='color: #e2e8f0;'>Scale validation:</span> <span style='color: #68d391;'>PASSED</span>",
+            "<span style='color: #fbb040;'>[WARNING]</span> <span style='color: #e2e8f0;'>Material 'Material_01' has no diffuse map</span>",
+            "<span style='color: #63b3ed;'>[INFO]</span> <span style='color: #e2e8f0;'>PBR assignment completed</span>",
+            "<span style='color: #68d391;'>[SUCCESS]</span> <span style='color: #e2e8f0;'>All validations completed</span>",
+            "<span style='color: #63b3ed;'>[INFO]</span> <span style='color: #e2e8f0;'>Ready for export...</span>"
         ]
         
-        self.log_text.setPlainText("\n".join(log_messages))
+        # self.log_text.setPlainText("\n".join(log_messages))
+        self.log_text.setHtml("<br>".join(log_messages))
         layout.addWidget(self.log_text)
         
-        # Main container with shadow
-        container = QWidget()
-        container.setLayout(layout)
-        container.setStyleSheet("""
+        # Set panel style
+        self.setStyleSheet("""
             QWidget {
                 background-color: white;
-                border-radius: 10px;
-                border: 1px solid #e0e0e0;
+                border-left: 1px solid #e0e0e0;
             }
         """)
         
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(container)
-        self.setLayout(main_layout)
+        self.setLayout(layout)
+        
+        # Set initial collapsed state
+        self.setFixedWidth(50)
+
+        # Set initial collapsed state
+        self.setVisible(False)  # CHANGED: Start completely hidden instead of setFixedWidth(50)
     
-    def slide_in(self, parent_pos, parent_size):
-        # Position to the right of parent
-        start_x = parent_pos.x() + parent_size.width()
-        start_y = parent_pos.y() + 100
-        end_x = start_x
-        end_y = start_y
-        
-        # Start from outside the screen
-        self.setGeometry(start_x + 350, start_y, 350, 400)
-        self.show()
-        
-        # Animate sliding in
-        self.animation.setStartValue(QRect(start_x + 350, start_y, 350, 400))
-        self.animation.setEndValue(QRect(end_x, end_y, 350, 400))
-        self.animation.start()
+    def toggle_panel(self):
+        if self.is_expanded:
+            self.collapse_panel()
+        else:
+            self.expand_panel()
     
-    def slide_out(self):
-        # Get current position
-        current_rect = self.geometry()
-        end_x = current_rect.x() + 350
+    def expand_panel(self):
+        self.is_expanded = True
+        self.setVisible(True)
+        self.setFixedWidth(300)
+        self.toggle_btn.setText("▶")
+        self.title_label.setVisible(True)
+        self.close_btn.setVisible(True)
+        self.log_text.setVisible(True)
         
-        # Animate sliding out
-        self.animation.setStartValue(current_rect)
-        self.animation.setEndValue(QRect(end_x, current_rect.y(), 350, 400))
-        self.animation.finished.connect(self.hide)
-        self.animation.start()
+        # Update log content when expanded
+        self.update_log()
+    
+    def collapse_panel(self):
+        self.is_expanded = False
+        # self.setFixedWidth(50)
+        self.setVisible(False)
+        self.toggle_btn.setText("◀")
+        self.title_label.setVisible(False)
+        self.close_btn.setVisible(False)
+        self.log_text.setVisible(False)
+    
+    def update_log(self):
+        # # Add new log entry to simulate activity
+        # import datetime
+        # timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        # new_entry = f"[{timestamp}] Log panel opened by user"
+        
+        # current_text = self.log_text.toPlainText()
+        # updated_text = current_text + "\n" + new_entry
+        # self.log_text.setPlainText(updated_text)
+        
+        # # Scroll to bottom
+        # scrollbar = self.log_text.verticalScrollBar()
+        # scrollbar.setValue(scrollbar.maximum())
+
+        # Add new log entry to simulate activity
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        new_entry = f"<span style='color: #63b3ed;'>[{timestamp}]</span> <span style='color: #e2e8f0;'>Log panel accessed by user</span>"
+        
+        current_text = self.log_text.toHtml()  # CHANGED: Using toHtml() instead of toPlainText()
+        updated_text = current_text + "<br>" + new_entry  # CHANGED: Using <br> instead of \n
+        self.log_text.setHtml(updated_text)  # CHANGED: Using setHtml() instead of setPlainText()
+        
+        # Scroll to bottom
+        scrollbar = self.log_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
 class ImagePlaceholder(QLabel):
     def __init__(self, text="Application\nBanner Image", size=(100, 60)):
@@ -403,7 +468,6 @@ class ValidateExportTab(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()
-        self.log_window = LogWindow()
     
     def init_ui(self):
         layout = QVBoxLayout()
@@ -456,11 +520,14 @@ class ValidateExportTab(QWidget):
         validation_layout.setSpacing(10)
         validate_btn = StyledButton("Validate")
         get_log_btn = StyledButton("Get Log")
-        get_log_btn.clicked.connect(self.show_log_window)
+        # We'll connect this in the main window
         validation_layout.addWidget(validate_btn)
         validation_layout.addWidget(get_log_btn)
         validation_layout.addStretch()
         layout.addLayout(validation_layout)
+        
+        # Store reference to get_log_btn for connection in main window
+        self.get_log_btn = get_log_btn
         
         # Separator
         layout.addWidget(SeparatorLine())
@@ -499,11 +566,6 @@ class ValidateExportTab(QWidget):
         
         layout.addStretch()
         self.setLayout(layout)
-    
-    def show_log_window(self):
-        parent_pos = self.window().pos()
-        parent_size = self.window().size()
-        self.log_window.slide_in(parent_pos, parent_size)
 
 class PublishTab(QWidget):
     def __init__(self):
@@ -626,7 +688,8 @@ class Main3DABTool(QMainWindow):
     
     def init_ui(self):
         self.setWindowTitle("3D AB Tool")
-        self.setFixedSize(420, 650)
+        self.setMinimumSize(500, 650)
+        self.resize(750, 650)  # Start with expanded size to accommodate log panel
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #ffffff;
@@ -636,9 +699,13 @@ class Main3DABTool(QMainWindow):
             }
         """)
         
-        # Central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        # Create main splitter
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        self.setCentralWidget(self.main_splitter)
+        
+        # Main content widget
+        main_content = QWidget()
+        main_content.setMinimumWidth(420)
         
         # Main layout
         main_layout = QVBoxLayout()
@@ -725,9 +792,35 @@ class Main3DABTool(QMainWindow):
         self.tab_widget.tabBar().setVisible(False)
         
         main_layout.addWidget(self.tab_widget)
+        main_content.setLayout(main_layout)
         
-        central_widget.setLayout(main_layout)
-    
+        # Create log panel
+        self.log_panel = LogPanel()
+        
+        # Add widgets to splitter
+        self.main_splitter.addWidget(main_content)
+        self.main_splitter.addWidget(self.log_panel)
+        
+        # Set splitter properties
+        # self.main_splitter.setSizes([420, 50])  # Start with log panel collapsed
+        self.main_splitter.setSizes([500, 0])  # CHANGED: Start with log panel completely hidden
+        self.main_splitter.setStretchFactor(0, 1)  # Main content can stretch
+        self.main_splitter.setStretchFactor(1, 0)  # Log panel fixed size
+        
+        # Connect get log button
+        self.validate_tab.get_log_btn.clicked.connect(self.show_log_panel)
+        
+        # Style the splitter
+        self.main_splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #e0e0e0;
+                width: 2px;
+            }
+            QSplitter::handle:hover {
+                background-color: #2196F3;
+            }
+        """)
+
     def switch_tab(self, index):
         # Update button states
         buttons = [self.naming_btn, self.validate_btn, self.publish_btn]
@@ -737,17 +830,55 @@ class Main3DABTool(QMainWindow):
         
         # Switch tab
         self.tab_widget.setCurrentIndex(index)
+    
+    def show_log_panel(self):
+        """Toggle the log panel when Get Log button is clicked"""
+        if not self.log_panel.is_expanded:
+            # Panel is collapsed, so expand it
+            self.log_panel.expand_panel()
+            
+            # If window is too narrow, expand it to accommodate the log panel
+            if self.width() < 720:  # 420 (min main content) + 300 (log panel)
+                self.resize(720, self.height())
+            
+            # Set splitter sizes to show the log panel
+            main_content_width = self.width() - 300 - 10  # Leave space for log panel + splitter
+            self.main_splitter.setSizes([main_content_width, 300])
+        
+        else:
+            # Panel is expanded, so collapse it
+            self.log_panel.collapse_panel()
+            
+            # Adjust splitter to hide the log panel completely
+            self.main_splitter.setSizes([self.width(), 0])
+
 
 def main():
+    """Main function to launch the application"""
+    # Create the application instance
     app = QApplication(sys.argv)
     
-    # Set application style
-    app.setStyle('Fusion')
+    # Set application properties
+    app.setApplicationName("3D AB Tool")
+    app.setApplicationVersion("1.0.0")
+    app.setOrganizationName("3D Tools")
     
+    # Create and show the main window
     window = Main3DABTool()
     window.show()
     
+    # Center the window on screen
+    screen = app.primaryScreen()
+    if screen:
+        screen_geometry = screen.geometry()
+        window_geometry = window.geometry()
+        x = (screen_geometry.width() - window_geometry.width()) // 2
+        y = (screen_geometry.height() - window_geometry.height()) // 2
+        window.move(x, y)
+    
+    # Start the application event loop
     sys.exit(app.exec())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
