@@ -3,9 +3,9 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                                QCheckBox, QComboBox, QFrame, QTabWidget, 
                                QGridLayout, QSizePolicy, QSpacerItem, QTextEdit,
-                               QScrollArea, QGraphicsOpacityEffect, QSplitter)
+                               QScrollArea, QGraphicsOpacityEffect, QSplitter, QMenu)
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QRect, QEasingCurve, QTimer
-from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon
+from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon, QAction
 
 class SeparatorLine(QFrame):
     def __init__(self):
@@ -92,6 +92,8 @@ class LogPanel(QWidget):
         # Log content (hidden when collapsed)
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
+        self.log_text.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.log_text.customContextMenuRequested.connect(self.show_context_menu)
         self.log_text.setStyleSheet("""
             QTextEdit {
                 background-color: #2d3748;          # CHANGED: Dark background
@@ -155,6 +157,25 @@ class LogPanel(QWidget):
         # Set initial collapsed state
         self.setVisible(False)  # CHANGED: Start completely hidden instead of setFixedWidth(50)
     
+    def show_context_menu(self, position):
+        """Show context menu for log text area"""
+        if not self.is_expanded:
+            return
+            
+        context_menu = QMenu(self)
+        
+        clear_action = QAction("Clear Log", self)
+        clear_action.triggered.connect(self.clear_log)
+        context_menu.addAction(clear_action)
+        
+        # Show context menu at cursor position
+        context_menu.exec(self.log_text.mapToGlobal(position))
+    
+    def clear_log(self):
+        """Clear the log content"""
+        self.log_text.clear()
+        self.log_text.setHtml("<span style='color: #63b3ed;'>[INFO]</span> <span style='color: #e2e8f0;'>Log cleared by user</span>")
+
     def toggle_panel(self):
         if self.is_expanded:
             self.collapse_panel()
@@ -228,9 +249,10 @@ class ImagePlaceholder(QLabel):
         self.setText(self.placeholder_text)
 
 class ToggleSwitch(QWidget):
-    def __init__(self, checked=False):
+    def __init__(self, checked=False, callback=None):
         super().__init__()
         self._checked = checked
+        self._callback = callback
         self.setFixedSize(44, 22)
         self.setStyleSheet("background: transparent;")
         
@@ -253,6 +275,8 @@ class ToggleSwitch(QWidget):
     def mousePressEvent(self, event):
         self._checked = not self._checked
         self.update()
+        if self._callback:
+            self._callback(self._checked)
     
     def isChecked(self):
         return self._checked
@@ -588,23 +612,49 @@ class PublishTab(QWidget):
         # Material info
         material_info_layout = QVBoxLayout()
         material_info_layout.setSpacing(5)
+
+        # Material label and line edit
         material_label = QLabel("Material")
         material_label.setStyleSheet("color: #6c757d; font-size: 11px;")
         matid_label = QLabel("Mat-Id count")
         matid_label.setStyleSheet("color: #6c757d; font-size: 11px;")
-        material_info_layout.addWidget(material_label)
-        material_info_layout.addWidget(matid_label)
-        material_layout.addLayout(material_info_layout)
+        material_layout.addWidget(material_label)
+
+        # Add QLineEdit for material
+        self.material_input = QLineEdit()
+        self.material_input.setPlaceholderText("Mat-Id Count")
+        self.material_input.setStyleSheet("""
+            QLineEdit {
+                padding: 6px 10px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 11px;
+                background-color: white;
+                min-width: 150px;
+            }
+            QLineEdit:focus {
+                border-color: #2196F3;
+            }
+        """)
+        material_layout.addWidget(self.material_input)
+        
+        # Mat-Id count
+        matid_label = QLabel("Mat-Id count")
+        matid_label.setStyleSheet("color: #6c757d; font-size: 11px;")
+        # material_info_layout.addWidget(matid_label)
+        
+        
+
         
         # Multi-Mat toggle
-        multimat_layout = QVBoxLayout()
-        multimat_layout.setSpacing(5)
+        # multimat_layout = QVBoxLayout()
+        # multimat_layout.setSpacing(5)
         multimat_label = QLabel("Multi-Mat")
         multimat_label.setStyleSheet("color: #6c757d; font-size: 11px;")
         multimat_toggle = ToggleSwitch(True)
-        multimat_layout.addWidget(multimat_label)
-        multimat_layout.addWidget(multimat_toggle)
-        material_layout.addLayout(multimat_layout)
+        material_layout.addWidget(multimat_label)
+        material_layout.addWidget(multimat_toggle)
+        # material_layout.addLayout(multimat_layout)
         
         material_layout.addStretch()
         layout.addLayout(material_layout)
@@ -623,9 +673,9 @@ class PublishTab(QWidget):
         simple_layout.setSpacing(5)
         simple_label = QLabel("Simple")
         simple_label.setStyleSheet("color: #6c757d; font-size: 11px;")
-        simple_toggle = ToggleSwitch(True)
+        self.simple_toggle = ToggleSwitch(True, self.on_simple_toggle)
         simple_layout.addWidget(simple_label)
-        simple_layout.addWidget(simple_toggle)
+        simple_layout.addWidget(self.simple_toggle)
         maps_layout.addLayout(simple_layout)
         
         # Hybrid toggle
@@ -633,9 +683,9 @@ class PublishTab(QWidget):
         hybrid_layout.setSpacing(5)
         hybrid_label = QLabel("Hybrid")
         hybrid_label.setStyleSheet("color: #6c757d; font-size: 11px;")
-        hybrid_toggle = ToggleSwitch(False)
+        self.hybrid_toggle = ToggleSwitch(False, self.on_hybrid_toggle)
         hybrid_layout.addWidget(hybrid_label)
-        hybrid_layout.addWidget(hybrid_toggle)
+        hybrid_layout.addWidget(self.hybrid_toggle)
         maps_layout.addLayout(hybrid_layout)
         
         maps_layout.addStretch()
@@ -680,6 +730,16 @@ class PublishTab(QWidget):
         
         layout.addStretch()
         self.setLayout(layout)
+    
+    def on_simple_toggle(self, checked):
+        """Handle simple toggle state change"""
+        if checked:
+            self.hybrid_toggle.setChecked(False)
+    
+    def on_hybrid_toggle(self, checked):
+        """Handle hybrid toggle state change"""
+        if checked:
+            self.simple_toggle.setChecked(False)
 
 class Main3DABTool(QMainWindow):
     def __init__(self):
@@ -851,6 +911,7 @@ class Main3DABTool(QMainWindow):
             
             # Adjust splitter to hide the log panel completely
             self.main_splitter.setSizes([self.width(), 0])
+            # self.resize(720, 650)
 
 
 def main():
@@ -882,3 +943,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+    
