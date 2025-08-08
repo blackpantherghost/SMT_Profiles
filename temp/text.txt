@@ -1,0 +1,9 @@
+Requirement : To Prepare a 3dsMax script
+Apply a Multi/Sub-Object Material to the objects with editable poly in the scene with material Id, where each object is having its own physical material with a maximum of 7 submaterial is allowed for each multisubobject and continue with rest of scene objects
+before that need to validate if scene objects are having exsisting Multi/Sub-Object Material
+
+Prepare a 3dsMax script to do the following:
+1) Validate if in the scene objects where editable poly exclude the hair and fur objects
+2) if found then validate if any of the object have Multi/Sub-Object Material assigned then make a var obj_withMultimat to store the object list with material name
+3) validate if any object do not have multisubobject assigned then make a var obj_with_nonMultimat to store the object list with material name
+4) if obj_with_nonMultimat len is > 0 then apply Multi/Sub-Object Material where each object is having its own physical material with a maximum of 7 submaterial is allowed for each multisubobject
