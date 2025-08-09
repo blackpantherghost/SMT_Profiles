@@ -211,20 +211,20 @@ class SecureOAuthConfig:
         return f"SecureOAuthConfig(protected_fields=2, endpoint={self.token_endpoint})"
 
 class EnhancedAsyncVaultClient:
-    """Enhanced Vault client with secure configuration loading"""
+    """Enhanced Vault client with secure configuration loading and LDAP authentication"""
     
     def __init__(self, client_idx: str):
         self.client_idx = client_idx
-        # ... existing initialization code ...
         self.VAULT_ADDR = 'https://pr.jk.tr.com:223'
         self.VAULT_SECRET_PATH = "sf/fg/md"
         self.VAULT_ENV_KEYS = ["c_id", "api_key"]
         self.VAULT_ENV_KEYS_PATH = ["c_id_id", "api_key_key_ol"]
         
-        self.vault_client = None
+        self.vault_client: Optional[hvac.Client] = None
         self.session = None
         self._config_obfuscator = ConfigObfuscator()
-
+        self._is_authenticated = False
+    
     def _authenticate_vault_ldap(self) -> hvac.Client:
         """
         Authenticate to Vault using LDAP credentials
@@ -287,8 +287,10 @@ class EnhancedAsyncVaultClient:
         if not self.vault_client.is_authenticated():
             raise RuntimeError("Vault session expired. Re-authentication required.")
     
-    async def load_secure_oauth_config(self) -> SecureOAuthConfig:
+    async def load_secure_oauth_config(self) -> 'SecureOAuthConfig':
         """Load OAuth configuration with enhanced security"""
+        self._check_authentication()
+        
         try:
             # Create secure container
             container = SecureConfigContainer()
@@ -319,39 +321,48 @@ class EnhancedAsyncVaultClient:
             raise
     
     async def _load_raw_secrets_from_vault(self) -> Dict[str, Any]:
-        """Load raw secrets from vault (existing logic)"""
+        """Load raw secrets from vault (requires authenticated client)"""
+        self._check_authentication()
+        
         secret_key_val = {}
         secret_data = {}
         
-        # Load secrets from vault paths
-        for end_path in self.VAULT_ENV_KEYS_PATH:
-            vault_path = f"{self.VAULT_SECRET_PATH}/{end_path}"
-            
-            try:
-                result = self.vault_client.read(vault_path)
-                if not result or 'data' not in result:
-                    raise Exception(f"No data found at path: {vault_path}")
+        try:
+            # Load secrets from vault paths
+            for end_path in self.VAULT_ENV_KEYS_PATH:
+                vault_path = f"{self.VAULT_SECRET_PATH}/{end_path}"
                 
-                values = result.get("data")
-                secret_key_val[end_path] = values
-                logger.info(f"Successfully loaded secret from {vault_path}")
+                try:
+                    logger.debug(f"Reading secret from path: {vault_path}")
+                    result = self.vault_client.read(vault_path)
+                    
+                    if not result or 'data' not in result:
+                        raise Exception(f"No data found at path: {vault_path}")
+                    
+                    values = result.get("data")
+                    secret_key_val[end_path] = values
+                    logger.info(f"Successfully loaded secret from {vault_path}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to load secret from {vault_path}: {e}")
+                    raise
+            
+            # Map secrets to configuration keys
+            for outer_key, inner_key in zip(self.VAULT_ENV_KEYS, self.VAULT_ENV_KEYS_PATH):
+                inner_dict = secret_key_val[inner_key]
                 
-            except Exception as e:
-                logger.error(f"Failed to load secret from {vault_path}: {e}")
-                raise
-        
-        # Map secrets to configuration keys
-        for outer_key, inner_key in zip(self.VAULT_ENV_KEYS, secret_key_val):
-            inner_dict = secret_key_val[inner_key]
+                if not inner_dict:
+                    raise Exception(f"Empty secret data for key: {inner_key}")
+                
+                # Get the first value from the inner dictionary
+                value = next(iter(inner_dict.values()))
+                secret_data[outer_key] = value
             
-            if not inner_dict:
-                raise Exception(f"Empty secret data for key: {inner_key}")
+            return secret_data
             
-            # Get the first value from the inner dictionary
-            value = next(iter(inner_dict.values()))
-            secret_data[outer_key] = value
-        
-        return secret_data
+        except Exception as e:
+            logger.error(f"Failed to load secrets from vault: {e}")
+            raise
     
     async def _process_and_secure_secrets(
         self, 
@@ -363,23 +374,58 @@ class EnhancedAsyncVaultClient:
         # Add obfuscation layer
         obfuscated_secrets = {}
         
-        for key, value in raw_secrets.items():
-            if not value:
-                raise Exception(f"Empty value for secret key: {key}")
+        try:
+            for key, value in raw_secrets.items():
+                if not value:
+                    raise Exception(f"Empty value for secret key: {key}")
+                
+                # Apply additional obfuscation if needed
+                processed_value = self._config_obfuscator.deobfuscate(str(value))
+                
+                # Store in secure container
+                if key == 'c_id':
+                    container.add_secure_value('client_id', processed_value)
+                elif key == 'api_key':
+                    container.add_secure_value('api_key', processed_value)
+                
+                # Clear the original value from memory
+                obfuscated_secrets[key] = "[SECURED]"
+                
+                # Clear processed_value from memory
+                processed_value = '\x00' * len(processed_value) if processed_value else ''
             
-            # Apply additional obfuscation if needed
-            processed_value = self._config_obfuscator.deobfuscate(str(value))
+            return obfuscated_secrets
             
-            # Store in secure container
-            if key == 'c_id':
-                container.add_secure_value('client_id', processed_value)
-            elif key == 'api_key':
-                container.add_secure_value('api_key', processed_value)
-            
-            # Clear the original value from memory
-            obfuscated_secrets[key] = "[SECURED]"
+        except Exception as e:
+            logger.error(f"Failed to process and secure secrets: {e}")
+            raise
+    
+    def _get_token_endpoint(self) -> str:
+        """Get OAuth token endpoint"""
+        # Return your actual token endpoint
+        return "https://your-oauth-provider.com/token"
+    
+    def _get_api_base_url(self) -> str:
+        """Get API base URL"""
+        # Return your actual API base URL
+        return "https://your-api.com/v1"
+    
+    def _get_default_scopes(self) -> list:
+        """Get default OAuth scopes"""
+        return ["read", "write"]
+    
+    def close(self):
+        """Close vault client and clean up"""
+        if self.vault_client:
+            # Clear any sensitive data
+            self.vault_client = None
+        if self.session:
+            # Close aiohttp session if using one
+            # asyncio.create_task(self.session.close())
+            pass
+        self._is_authenticated = False
         
-        return obfuscated_secrets
+        logger.info("Vault client closed")
 
 class ConfigObfuscator:
     """Additional layer of config obfuscation"""
@@ -539,9 +585,51 @@ async def demonstrate_secure_config():
     actual_value = secure_str.get_value("demonstration")
     print(f"Retrieved value length: {len(actual_value)}")
 
+# Usage example
+async def main():
+    """Example usage of the enhanced vault client"""
+    try:
+        # Create vault client instance
+        vault_client = EnhancedAsyncVaultClient("client_001")
+        
+        # Initialize with LDAP authentication
+        print("Initializing Vault client...")
+        await vault_client.initialize()
+        
+        # Load secure OAuth configuration
+        print("Loading secure OAuth configuration...")
+        oauth_config = await vault_client.load_secure_oauth_config()
+        
+        # Use the configuration (values are securely accessed)
+        print("OAuth configuration loaded successfully")
+        print(f"Config: {oauth_config}")
+        
+        # Create OAuth client
+        oauth_client = SecureOAuthClientV2(vault_client)
+        await oauth_client.initialize()
+        
+        # Use for authentication (example)
+        # token = await oauth_client.authenticate_ropc("username", "password")
+        
+        print("Setup complete!")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        logger.error(f"Main execution failed: {e}")
+    finally:
+        # Clean up
+        if 'vault_client' in locals():
+            vault_client.close()
+
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(demonstrate_secure_config())
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Run the example
+    asyncio.run(main())
 
 
 
