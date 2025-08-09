@@ -224,6 +224,68 @@ class EnhancedAsyncVaultClient:
         self.vault_client = None
         self.session = None
         self._config_obfuscator = ConfigObfuscator()
+
+    def _authenticate_vault_ldap(self) -> hvac.Client:
+        """
+        Authenticate to Vault using LDAP credentials
+        Returns authenticated vault client
+        """
+        try:
+            # Initialize vault client
+            vault = hvac.Client(url=self.VAULT_ADDR)
+            
+            # Get credentials securely
+            print("Vault LDAP Authentication Required")
+            username = input("Vault username: ")
+            password = getpass.getpass("Vault password: ")
+            
+            # Authenticate using LDAP
+            logger.info(f"Attempting LDAP authentication for user: {username}")
+            vault.auth.ldap.login(username=username, password=password)
+            
+            # Verify authentication
+            if not vault.is_authenticated():
+                raise Exception("Vault authentication failed")
+            
+            logger.info("Vault LDAP authentication successful")
+            
+            # Clear password from memory immediately
+            password = '\x00' * len(password) if password else ''
+            
+            return vault
+            
+        except Exception as e:
+            logger.error(f"Vault LDAP authentication failed: {e}")
+            raise Exception(f"Failed to authenticate to Vault: {e}")
+        finally:
+            # Ensure password is cleared
+            if 'password' in locals():
+                password = '\x00' * len(password) if password else ''
+    
+    async def initialize(self):
+        """Initialize the vault client with LDAP authentication"""
+        try:
+            # Authenticate and get vault client
+            self.vault_client = self._authenticate_vault_ldap()
+            self._is_authenticated = True
+            
+            # Initialize session for other operations if needed
+            # self.session = aiohttp.ClientSession()  # Uncomment if using aiohttp
+            
+            logger.info("Vault client initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize vault client: {e}")
+            self._is_authenticated = False
+            raise
+    
+    def _check_authentication(self):
+        """Check if vault client is authenticated"""
+        if not self.vault_client or not self._is_authenticated:
+            raise RuntimeError("Vault client not authenticated. Call initialize() first.")
+        
+        if not self.vault_client.is_authenticated():
+            raise RuntimeError("Vault session expired. Re-authentication required.")
     
     async def load_secure_oauth_config(self) -> SecureOAuthConfig:
         """Load OAuth configuration with enhanced security"""
