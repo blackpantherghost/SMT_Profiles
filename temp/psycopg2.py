@@ -64,3 +64,8 @@ try:
 
 except Exception as e:
     print("Error while Row Insertion:", e)
+
+
+# firewall.cpl (Inbound, Outbound rules), #services.msc, pg_hba.conf (host    all    all    0.0.0.0/0    md5), 
+# postgresql.conf (listen_addresses = '*')
+
