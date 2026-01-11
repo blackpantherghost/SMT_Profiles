@@ -45,8 +45,22 @@ try:
             for row in rows:
                 print(row)
 
+    # cursor.close()
+    # conn.close()
+
+except Exception as e:
+    print("Error while connecting to PostgreSQL:", e)
+
+try:
+    sql = """
+    INSERT INTO info
+    VALUES (%s, %s, %s)
+    """
+    cursor.execute(sql, (104, 'MAN', 'Tan'))
+    conn.commit()
+    print("Row Inserted successfully")
     cursor.close()
     conn.close()
 
 except Exception as e:
-    print("Error while connecting to PostgreSQL:", e)
+    print("Error while Row Insertion:", e)
