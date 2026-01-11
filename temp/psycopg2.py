@@ -72,6 +72,42 @@ except Exception as e:
 ######################################################################
 # SSL
 # hostssl all all <CLIENT_IP>/32 scram-sha-256
+"""
+❌ REMOVE from postgresql.conf : 
+listen_addresses = '*'
+With:
+listen_addresses = 'your_server_ip'
+ssl = on
+password_encryption = scram-sha-256
+
+from pg_hba.conf update the following :
+#hostssl all all <CLIENT_IP>/32 scram-sha-256
+
+Need to update :
+
+✅ Force SSL (required for hostssl)
+✅ Use scram-sha-256 compatible auth
+✅ Close connections safely
+✅ Avoid SQL injection for table reads
+❌ Removed insecure config comments (0.0.0.0/0, md5, listen_addresses='*')
+
+| Issue                    | Status  |
+| ------------------------ | ------- |
+| `md5` authentication     | ❌ Fixed |
+| No TLS encryption        | ❌ Fixed |
+| `0.0.0.0/0` access       | ❌ Fixed |
+| SQL injection risk       | ❌ Fixed |
+| Unclean connection close | ❌ Fixed |
+
+Uses encrypted SSL
+Works with hostssl
+Is compatible with modern PostgreSQL security
+Is safe for LAN/VPN or production
+
+After connecting, run:
+SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+
+"""
 ######################################################################
 
 import psycopg2
