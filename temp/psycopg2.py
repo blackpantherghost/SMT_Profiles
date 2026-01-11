@@ -73,12 +73,75 @@ except Exception as e:
 # SSL
 # hostssl all all <CLIENT_IP>/32 scram-sha-256
 """
+Main security concerns & improvements:
+1. md5 authentication is outdated
+    Recommendation:
+    Use scram-sha-256 instead : host  all  all  <IP>/32  scram-sha-256
+    in postgresql.conf: password_encryption = scram-sha-256
+
+2. Mention of TLS/SSL encryption, Without SSL, credentials and query data travel in clear text
+    Recommendation:
+    Enable TLS (ssl = on)
+    Require SSL in pg_hba.conf:
+
+3. Opening port 5432 inbound
+    Concern: If firewall rules are ever widened accidentally, PostgreSQL is a common attack target
+    Misconfiguration risk over time
+
+    Recommendations:
+    Restrict firewall rule to specific source IP(s) only
+    Avoid 0.0.0.0/0 at all costs
+    Periodically audit firewall rules
+
+4. Client IP whitelisting limitations
+    Prefer VPN-based access where the DB listens only on the VPN interface
+    Combine IP restriction with:
+    Strong passwords
+    TLS
+    Least-privilege database roles
+    
+5. Role & privilege hygiene
+    Best practice
+    One role per application/user
+    Minimum required privileges
+    No superuser access from laptops
+    
+6. Logging & monitoring
+    Recommendations:
+    Enable:
+    log_connections = on
+    log_disconnections = on
+    log_line_prefix with %u %d %r
+    Monitor failed login attempts
+
+| Area                  | Risk Level       |
+| --------------------- | ---------------- |
+| LAN/VPN only access   | Low              |
+| IP-restricted pg_hba  | Low              |
+| `md5` authentication  | **Medium**       |
+| No TLS                | **Medium**       |
+| Open 5432 inbound     | Medium           |
+| Least-privilege roles | Depends on usage |
+
+Recommended “secure baseline” for your case
+    ✔ VPN-only access
+    ✔ Firewall allows 5432 only from VPN subnet
+    ✔ hostssl + scram-sha-256
+    ✔ No superuser access from clients
+    ✔ Strong passwords
+    ✔ Connection logging enabled
+
 ❌ REMOVE from postgresql.conf : 
 listen_addresses = '*'
 With:
 listen_addresses = 'your_server_ip'
 ssl = on
 password_encryption = scram-sha-256
+
+ensure certificate paths exist:
+ssl_cert_file = 'server.crt'
+ssl_key_file  = 'server.key'
+
 
 from pg_hba.conf update the following :
 #hostssl all all <CLIENT_IP>/32 scram-sha-256
