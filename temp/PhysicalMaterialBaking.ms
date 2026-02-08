@@ -18,24 +18,24 @@ fn Convert_Bake_BaseColor_Material material = (
         )
         
         if ((classof material) == PhysicalMaterial) do (
-            -- Disable all maps except base color
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            -- Disable all maps except base color (with property existence checks)
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
             
             -- Keep only base color active
-            material.base_color_map_on = true
+            try (material.base_color_map_on = true) catch()
         )
     )
 )
@@ -59,30 +59,35 @@ fn Convert_Bake_Roughness_Material material = (
         
         if ((classof material) == PhysicalMaterial) do (
             -- Transfer roughness to base color for baking
-            if (material.roughness_map != undefined) then (
-                material.base_color_map = material.roughness_map
-                material.base_color_map_on = true
+            local hasRoughnessMap = false
+            try (hasRoughnessMap = (material.roughness_map != undefined)) catch()
+            
+            if hasRoughnessMap then (
+                try (material.base_color_map = material.roughness_map) catch()
+                try (material.base_color_map_on = true) catch()
             ) else (
                 -- If no map, create a solid color based on roughness value
-                roughVal = material.roughness * 255
-                material.base_color = color roughVal roughVal roughVal
+                try (
+                    local roughVal = material.roughness * 255
+                    material.base_color = color roughVal roughVal roughVal
+                ) catch()
             )
             
             -- Disable all other maps
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
         )
     )
 )
@@ -106,30 +111,35 @@ fn Convert_Bake_Metalness_Material material = (
         
         if ((classof material) == PhysicalMaterial) do (
             -- Transfer metalness to base color for baking
-            if (material.metalness_map != undefined) then (
-                material.base_color_map = material.metalness_map
-                material.base_color_map_on = true
+            local hasMetalnessMap = false
+            try (hasMetalnessMap = (material.metalness_map != undefined)) catch()
+            
+            if hasMetalnessMap then (
+                try (material.base_color_map = material.metalness_map) catch()
+                try (material.base_color_map_on = true) catch()
             ) else (
                 -- If no map, create a solid color based on metalness value
-                metalVal = material.metalness * 255
-                material.base_color = color metalVal metalVal metalVal
+                try (
+                    local metalVal = material.metalness * 255
+                    material.base_color = color metalVal metalVal metalVal
+                ) catch()
             )
             
             -- Disable all other maps
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
         )
     )
 )
@@ -153,30 +163,35 @@ fn Convert_Bake_Opacity_Material material = (
         
         if ((classof material) == PhysicalMaterial) do (
             -- Transfer transparency/opacity to base color
-            if (material.transparency_map != undefined) then (
-                material.base_color_map = material.transparency_map
-                material.base_color_map_on = true
+            local hasTransparencyMap = false
+            try (hasTransparencyMap = (material.transparency_map != undefined)) catch()
+            
+            if hasTransparencyMap then (
+                try (material.base_color_map = material.transparency_map) catch()
+                try (material.base_color_map_on = true) catch()
             ) else (
                 -- Create solid color based on transparency value
-                opacVal = (1.0 - material.transparency) * 255
-                material.base_color = color opacVal opacVal opacVal
+                try (
+                    local opacVal = (1.0 - material.transparency) * 255
+                    material.base_color = color opacVal opacVal opacVal
+                ) catch()
             )
             
             -- Disable all other maps
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
         )
     )
 )
@@ -200,28 +215,31 @@ fn Convert_Bake_Emission_Material material = (
         
         if ((classof material) == PhysicalMaterial) do (
             -- Transfer emission to base color
-            if (material.emission_map != undefined) then (
-                material.base_color_map = material.emission_map
-                material.base_color_map_on = true
+            local hasEmissionMap = false
+            try (hasEmissionMap = (material.emission_map != undefined)) catch()
+            
+            if hasEmissionMap then (
+                try (material.base_color_map = material.emission_map) catch()
+                try (material.base_color_map_on = true) catch()
             ) else (
-                material.base_color = material.emit_color
+                try (material.base_color = material.emit_color) catch()
             )
             
             -- Disable all other maps
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
         )
     )
 )
@@ -245,29 +263,34 @@ fn Convert_Bake_Coating_Material material = (
         
         if ((classof material) == PhysicalMaterial) do (
             -- Transfer coating to base color
-            if (material.coating_map != undefined) then (
-                material.base_color_map = material.coating_map
-                material.base_color_map_on = true
+            local hasCoatingMap = false
+            try (hasCoatingMap = (material.coating_map != undefined)) catch()
+            
+            if hasCoatingMap then (
+                try (material.base_color_map = material.coating_map) catch()
+                try (material.base_color_map_on = true) catch()
             ) else (
-                coatVal = material.coating * 255
-                material.base_color = color coatVal coatVal coatVal
+                try (
+                    local coatVal = material.coating * 255
+                    material.base_color = color coatVal coatVal coatVal
+                ) catch()
             )
             
             -- Disable all other maps
-            material.roughness_map_on = false
-            material.metalness_map_on = false
-            material.bump_map_on = false
-            material.displacement_map_on = false
-            material.emission_map_on = false
-            material.anisotropy_map_on = false
-            material.aniso_angle_map_on = false
-            material.transparency_map_on = false
-            material.trans_roughness_map_on = false
-            material.scattering_map_on = false
-            material.coating_map_on = false
-            material.coat_roughness_map_on = false
-            material.coat_bump_map_on = false
-            material.coat_color_map_on = false
+            try (material.roughness_map_on = false) catch()
+            try (material.metalness_map_on = false) catch()
+            try (material.bump_map_on = false) catch()
+            try (material.displacement_map_on = false) catch()
+            try (material.emission_map_on = false) catch()
+            try (material.anisotropy_map_on = false) catch()
+            try (material.aniso_angle_map_on = false) catch()
+            try (material.transparency_map_on = false) catch()
+            try (material.trans_roughness_map_on = false) catch()
+            try (material.scattering_map_on = false) catch()
+            try (material.coating_map_on = false) catch()
+            try (material.coat_roughness_map_on = false) catch()
+            try (material.coat_bump_map_on = false) catch()
+            try (material.coat_color_map_on = false) catch()
         )
     )
 )
@@ -683,8 +706,12 @@ rollout Bake_Physical_Material_Rollout "Physical Material Baker - Scanline" widt
                 )
                 
                 if chk_coating.checked == true do (
-                    new_baked_material.coating_map = Bitmaptexture fileName:(bake_path + obj.name + "_Coating." + file_format)
-                    new_baked_material.coating_map_on = true
+                    try (
+                        new_baked_material.coating_map = Bitmaptexture fileName:(bake_path + obj.name + "_Coating." + file_format)
+                        new_baked_material.coating_map_on = true
+                    ) catch (
+                        format "Warning: Coating properties not available in this Physical Material mode\n"
+                    )
                 )
                 
                 obj2.material = new_baked_material
