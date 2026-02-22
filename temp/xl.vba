@@ -1,3 +1,4 @@
+
 Sub CollectDueDates()
 
     Dim currentWB As Workbook
@@ -27,14 +28,13 @@ Sub CollectDueDates()
         Set dataWB = Workbooks.Open(allDataPath)
     End If
     
-    ' === Clear previous output from J20 downward before writing fresh ===
+    ' === Clear previous output from J20 downward ===
     Dim lastUsedRow As Long
     lastUsedRow = glossaryWS.Cells(glossaryWS.Rows.Count, 10).End(xlUp).Row
     If lastUsedRow >= 20 Then
         glossaryWS.Range("J20:J" & lastUsedRow).ClearContents
     End If
     
-    ' === Output starts at J20, each line gets its own row ===
     Dim outputRow As Long
     outputRow = 20
     
@@ -86,58 +86,48 @@ Sub CollectDueDates()
             
             If dueColIdx = 0 Then GoTo NextDueCol
             
+            ' dueDateLaunchMap : due date (as actual Date) -> Dictionary of unique launch dates (as actual Date)
             Dim dueDateLaunchMap As Object
             Set dueDateLaunchMap = CreateObject("Scripting.Dictionary")
-            Dim dueDateOrder As Object
-            Set dueDateOrder = CreateObject("Scripting.Dictionary")
-            Dim orderIdx As Long
-            orderIdx = 0
+            ' Store actual date serial numbers as keys for sorting
+            Dim dueDateSerials As Object
+            Set dueDateSerials = CreateObject("Scripting.Dictionary")
             
             Dim r As Long
             For r = 2 To lastDataRow
                 Dim dueCell As Variant
                 dueCell = dataWS.Cells(r, dueColIdx).Value
                 
-                Dim dueVal As String
-                dueVal = ""
-                If dueCell <> "" And Not IsEmpty(dueCell) Then
-                    If IsDate(dueCell) Then
-                        dueVal = Format(CDate(dueCell), "YYYY-MM-DD")
-                    Else
-                        dueVal = Trim(CStr(dueCell))
-                    End If
+                ' Only process valid dates
+                If IsEmpty(dueCell) Or dueCell = "" Then GoTo NextRow2
+                If Not IsDate(dueCell) Then GoTo NextRow2
+                
+                Dim dueSerial As Long
+                dueSerial = CLng(CDate(dueCell))   ' Use serial number as unique key for sorting
+                
+                ' Track unique due date serials
+                If Not dueDateSerials.Exists(dueSerial) Then
+                    dueDateSerials.Add dueSerial, dueSerial
                 End If
                 
-                If dueVal = "" Or dueVal = "0" Then GoTo NextRow2
-                
-                If Not dueDateOrder.Exists(dueVal) Then
-                    dueDateOrder.Add dueVal, orderIdx
-                    orderIdx = orderIdx + 1
-                End If
-                
-                If Not dueDateLaunchMap.Exists(dueVal) Then
+                ' Initialize inner dictionary for launch dates under this due date
+                If Not dueDateLaunchMap.Exists(dueSerial) Then
                     Dim innerDict As Object
                     Set innerDict = CreateObject("Scripting.Dictionary")
-                    dueDateLaunchMap.Add dueVal, innerDict
+                    dueDateLaunchMap.Add dueSerial, innerDict
                 End If
                 
+                ' Get launch date for this row
                 If launchColIdx > 0 Then
                     Dim launchCell As Variant
                     launchCell = dataWS.Cells(r, launchColIdx).Value
                     
-                    Dim launchVal As String
-                    launchVal = ""
-                    If launchCell <> "" And Not IsEmpty(launchCell) Then
-                        If IsDate(launchCell) Then
-                            launchVal = Format(CDate(launchCell), "YYYY-MM-DD")
-                        Else
-                            launchVal = Trim(CStr(launchCell))
-                        End If
-                    End If
-                    
-                    If launchVal <> "" And launchVal <> "0" Then
-                        If Not dueDateLaunchMap(dueVal).Exists(launchVal) Then
-                            dueDateLaunchMap(dueVal).Add launchVal, 1
+                    If Not IsEmpty(launchCell) And launchCell <> "" And IsDate(launchCell) Then
+                        Dim launchSerial As Long
+                        launchSerial = CLng(CDate(launchCell))
+                        
+                        If Not dueDateLaunchMap(dueSerial).Exists(launchSerial) Then
+                            dueDateLaunchMap(dueSerial).Add launchSerial, launchSerial
                         End If
                     End If
                 End If
@@ -145,44 +135,53 @@ Sub CollectDueDates()
 NextRow2:
             Next r
             
-            ' Build sorted due date keys
-            Dim keysSorted() As String
-            ReDim keysSorted(dueDateOrder.Count - 1)
-            Dim k As Variant
-            For Each k In dueDateOrder.Keys
-                keysSorted(dueDateOrder(k)) = CStr(k)
-            Next k
+            ' === Sort due date serials ascending ===
+            Dim dueKeys() As Long
+            dueKeys = GetSortedKeys(dueDateSerials)
             
-            ' === Write one line per due date into its own row in column J ===
+            ' === Write one row per due date ===
             Dim idx As Long
-            For idx = 0 To UBound(keysSorted)
-                Dim thisDueDate As String
-                thisDueDate = keysSorted(idx)
-                If thisDueDate = "" Then GoTo NextDueDate
+            For idx = 0 To UBound(dueKeys)
+                Dim thisDueSerial As Long
+                thisDueSerial = dueKeys(idx)
+                
+                ' Format due date as mm/dd/yyyy
+                Dim dueDateFormatted As String
+                dueDateFormatted = Format(CDate(thisDueSerial), "mm/dd/yyyy")
+                
+                ' === Sort launch date serials ascending and format ===
+                Dim launchSorted() As Long
+                launchSorted = GetSortedKeys(dueDateLaunchMap(thisDueSerial))
                 
                 Dim launchDatesStr As String
                 launchDatesStr = ""
-                If dueDateLaunchMap.Exists(thisDueDate) Then
-                    launchDatesStr = Join(dueDateLaunchMap(thisDueDate).Keys, ", ")
-                End If
+                Dim lIdx As Long
+                For lIdx = 0 To UBound(launchSorted)
+                    Dim formattedLaunch As String
+                    formattedLaunch = Format(CDate(launchSorted(lIdx)), "mm/dd/yyyy")
+                    If launchDatesStr = "" Then
+                        launchDatesStr = formattedLaunch
+                    Else
+                        launchDatesStr = launchDatesStr & ", " & formattedLaunch
+                    End If
+                Next lIdx
                 
+                ' Build final line string
                 Dim lineStr As String
-                lineStr = dueColName & ">>" & projectName & ">>" & thisDueDate & ">>" & launchDatesStr
+                lineStr = dueColName & ">>" & projectName & ">>" & dueDateFormatted & ">>" & launchDatesStr
                 
-                ' Write to column J, current output row
-                With glossaryWS.Cells(outputRow, 10)   ' Column J = 10
+                ' Write to column J
+                With glossaryWS.Cells(outputRow, 10)
                     .Value = lineStr
                     .HorizontalAlignment = xlLeft
                     .VerticalAlignment = xlCenter
                 End With
                 
-                outputRow = outputRow + 1   ' Move to next row for next line
-                
-NextDueDate:
+                outputRow = outputRow + 1
             Next idx
             
             Set dueDateLaunchMap = Nothing
-            Set dueDateOrder = Nothing
+            Set dueDateSerials = Nothing
             
 NextDueCol:
         Next d
@@ -192,12 +191,46 @@ NextDueCol:
 NextRow:
     Next i
     
-    ' Auto-fit column J width to fit content
     glossaryWS.Columns(10).AutoFit
     
     MsgBox "Done! " & (outputRow - 20) & " rows written to Glossary column J starting at J20.", vbInformation
 
 End Sub
+
+' ============================================================
+' Helper Function: Returns dictionary keys sorted ascending
+' Works on Scripting.Dictionary where keys are Long (date serials)
+' ============================================================
+Function GetSortedKeys(dict As Object) As Long()
+    Dim n As Long
+    n = dict.Count
+    
+    Dim arr() As Long
+    ReDim arr(n - 1)
+    
+    Dim k As Variant
+    Dim idx As Long
+    idx = 0
+    For Each k In dict.Keys
+        arr(idx) = CLng(k)
+        idx = idx + 1
+    Next k
+    
+    ' Bubble sort ascending
+    Dim pass As Long, inner As Long
+    Dim temp As Long
+    For pass = 0 To n - 2
+        For inner = 0 To n - 2 - pass
+            If arr(inner) > arr(inner + 1) Then
+                temp = arr(inner)
+                arr(inner) = arr(inner + 1)
+                arr(inner + 1) = temp
+            End If
+        Next inner
+    Next pass
+    
+    GetSortedKeys = arr
+End Function
 
 
 
