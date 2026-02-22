@@ -304,7 +304,7 @@ Sub AnalyzeDueDates()
     
     ' === Clear previous results in E:J and P from row 22 downward ===
     Dim lastUsedRow As Long
-    lastUsedRow = modelWS.Cells(modelWS.Rows.Count, 4).End(xlUp).Row  ' Based on col D
+    lastUsedRow = modelWS.Cells(modelWS.Rows.Count, 4).End(xlUp).Row
     If lastUsedRow >= 22 Then
         modelWS.Range("E22:J" & lastUsedRow).ClearContents
         modelWS.Range("E22:J" & lastUsedRow).Font.ColorIndex = xlAutomatic
@@ -315,7 +315,7 @@ Sub AnalyzeDueDates()
     Dim currentRow As Long
     currentRow = 22
     
-    Do While Trim(modelWS.Cells(currentRow, 4).Value) <> ""   ' Column D = 4
+    Do While Trim(modelWS.Cells(currentRow, 4).Value) <> ""
     
         Dim cellValue As String
         cellValue = Trim(modelWS.Cells(currentRow, 4).Value)
@@ -324,15 +324,14 @@ Sub AnalyzeDueDates()
         Dim parts() As String
         parts = Split(cellValue, ">>")
         
-        ' Need at least 3 parts to proceed
         If UBound(parts) < 2 Then
-            modelWS.Cells(currentRow, 5).Value  = "Parse Error"   ' E
-            modelWS.Cells(currentRow, 6).Value  = "Parse Error"   ' F
-            modelWS.Cells(currentRow, 7).Value  = "Parse Error"   ' G
-            modelWS.Cells(currentRow, 8).Value  = "Parse Error"   ' H
-            modelWS.Cells(currentRow, 9).Value  = "Parse Error"   ' I
-            modelWS.Cells(currentRow, 10).Value = "Parse Error"   ' J
-            modelWS.Cells(currentRow, 16).Value = "Parse Error"   ' P
+            modelWS.Cells(currentRow, 5).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 6).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 7).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 8).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 9).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 10).Value = "Parse Error"
+            modelWS.Cells(currentRow, 16).Value = "Parse Error"
             currentRow = currentRow + 1
             GoTo NextLine
         End If
@@ -342,22 +341,21 @@ Sub AnalyzeDueDates()
         Dim dueDateStr  As String
         Dim launchDates As String
         
-        dueType     = Trim(parts(0))                               ' e.g. "asset due"
-        sheetName   = Trim(parts(1))                               ' e.g. "ProjectA"
-        dueDateStr  = Trim(parts(2))                               ' e.g. "03/01/2025"
-        launchDates = IIf(UBound(parts) >= 3, Trim(parts(3)), "") ' e.g. "06/01/2025, 07/30/2025"
+        dueType     = Trim(parts(0))
+        sheetName   = Trim(parts(1))
+        dueDateStr  = Trim(parts(2))
+        launchDates = IIf(UBound(parts) >= 3, Trim(parts(3)), "")
         
         ' === Write extracted parts to E, F, G ===
-        modelWS.Cells(currentRow, 5).Value = sheetName     ' E - Project Name
+        modelWS.Cells(currentRow, 5).Value = sheetName
         modelWS.Cells(currentRow, 5).HorizontalAlignment = xlLeft
         
-        modelWS.Cells(currentRow, 6).Value = dueDateStr    ' F - Due Date
+        modelWS.Cells(currentRow, 6).Value = dueDateStr
         modelWS.Cells(currentRow, 6).HorizontalAlignment = xlCenter
         
-        modelWS.Cells(currentRow, 7).Value = launchDates   ' G - Launch Dates
+        modelWS.Cells(currentRow, 7).Value = launchDates
         modelWS.Cells(currentRow, 7).HorizontalAlignment = xlLeft
         
-        ' Validate due date
         If Not IsDate(dueDateStr) Then
             modelWS.Cells(currentRow, 8).Value  = "Invalid Date"
             modelWS.Cells(currentRow, 9).Value  = "Invalid Date"
@@ -391,32 +389,23 @@ Sub AnalyzeDueDates()
         Dim assetStatusColIdx As Integer : assetStatusColIdx = 0
         Dim agencyColIdx      As Integer : agencyColIdx = 0
         
-        For colIndex = 2 To 17   ' B=2 to Q=17
+        For colIndex = 2 To 17
             Dim headerVal As String
             headerVal = Trim(LCase(dataWS.Cells(1, colIndex).Value))
-            
             Select Case headerVal
-                Case LCase(dueType)
-                    dueColIdx = colIndex          ' Column matching "asset due" / "lighting due" etc
-                Case "tcin"
-                    tcinColIdx = colIndex         ' TCIN column
-                Case "asset status"
-                    assetStatusColIdx = colIndex  ' Asset Status column
-                Case "internal / agency"
-                    agencyColIdx = colIndex       ' Internal / Agency column
+                Case LCase(dueType)       : dueColIdx = colIndex
+                Case "tcin"               : tcinColIdx = colIndex
+                Case "asset status"       : assetStatusColIdx = colIndex
+                Case "internal / agency"  : agencyColIdx = colIndex
             End Select
         Next colIndex
         
-        ' === Find last data row in matched sheet ===
+        ' === Find last data row ===
         Dim lastDataRow As Long
         lastDataRow = dataWS.Cells(dataWS.Rows.Count, 2).End(xlUp).Row
         
-        ' ==============================================================
-        ' P22 — Total count of ALL non-blank entries in TCIN column
-        '        No filter applied — counts entire sheet
-        ' ==============================================================
-        Dim totalTCINAll As Long
-        totalTCINAll = 0
+        ' === P22 — Total TCIN count, no filter ===
+        Dim totalTCINAll As Long : totalTCINAll = 0
         If tcinColIdx > 0 Then
             Dim tcinRow As Long
             For tcinRow = 2 To lastDataRow
@@ -426,20 +415,14 @@ Sub AnalyzeDueDates()
             Next tcinRow
         End If
         
-        ' ==============================================================
-        ' H22 — Count of entries in the DUE TYPE column (e.g. "asset due")
-        '        where the date matches 03/01/2025 exactly
-        '        i.e. how many rows in ProjectA sheet have
-        '        "asset due" column = 03/01/2025
-        ' ==============================================================
-        Dim totalDueCount As Long  : totalDueCount = 0
-        Dim totalDone     As Long  : totalDone = 0
-        Dim foundAgency   As Boolean : foundAgency = False
-        Dim foundInternal As Boolean : foundInternal = False
+        ' === H22, I22, J22 — filtered by matching due date ===
+        Dim totalDueCount As Long : totalDueCount = 0
+        Dim totalDone     As Long : totalDone = 0
+        Dim countAgency   As Long : countAgency = 0
+        Dim countInternal As Long : countInternal = 0
         
         Dim dataRow As Long
         For dataRow = 2 To lastDataRow
-        
             If dueColIdx > 0 Then
                 Dim cellDueVal As Variant
                 cellDueVal = dataWS.Cells(dataRow, dueColIdx).Value
@@ -447,80 +430,60 @@ Sub AnalyzeDueDates()
                 If IsDate(cellDueVal) Then
                     If CLng(CDate(cellDueVal)) = CLng(dueDate) Then
                     
-                        ' H22 — Count every matching row in the due type column
-                        '        (this is what "total entries in asset due column
-                        '         for 03/01/2025" means)
+                        ' H22 — Count rows where due type column = due date
                         totalDueCount = totalDueCount + 1
                         
-                        ' J22 — Count "Done" in Asset Status for matching rows
+                        ' J22 — Count "Done" in Asset Status
                         If assetStatusColIdx > 0 Then
                             If Trim(LCase(dataWS.Cells(dataRow, assetStatusColIdx).Value)) = "done" Then
                                 totalDone = totalDone + 1
                             End If
                         End If
                         
-                        ' I22 — Check Agency / Internal for matching rows
+                        ' I22 — Count Agency and Internal separately
                         If agencyColIdx > 0 Then
                             Dim agencyVal As String
                             agencyVal = Trim(LCase(dataWS.Cells(dataRow, agencyColIdx).Value))
                             Select Case agencyVal
-                                Case "agency"   : foundAgency = True
-                                Case "internal" : foundInternal = True
+                                Case "agency"   : countAgency = countAgency + 1
+                                Case "internal" : countInternal = countInternal + 1
                             End Select
                         End If
                         
                     End If
                 End If
             End If
-            
         Next dataRow
         
-        ' === Determine Agency / Internal label ===
+        ' === Build I22 output text ===
         Dim agencyOutput As String
-        If foundAgency And foundInternal Then
-            agencyOutput = "Agency, Internal"
-        ElseIf foundAgency Then
-            agencyOutput = "Agency"
-        ElseIf foundInternal Then
-            agencyOutput = "Internal"
-        Else
-            agencyOutput = "Not Found"
-        End If
+        agencyOutput = "Internal: " & countInternal & ", Agency: " & countAgency
         
         ' === Write all results ===
         With modelWS
         
-            ' H22 — Count of rows in "asset due" column matching 03/01/2025
+            ' H22 — Count of rows in due type column matching due date
             With .Cells(currentRow, 8)
                 .Value = totalDueCount
                 .NumberFormat = "0"
                 .HorizontalAlignment = xlCenter
             End With
             
-            ' I22 — Agency / Internal
+            ' I22 — Internal and Agency counts as combined text
             With .Cells(currentRow, 9)
                 .Value = agencyOutput
-                .HorizontalAlignment = xlCenter
-                Select Case agencyOutput
-                    Case "Agency"
-                        .Font.Color = RGB(0, 112, 192)    ' Blue
-                    Case "Internal"
-                        .Font.Color = RGB(0, 150, 0)      ' Green
-                    Case "Agency, Internal"
-                        .Font.Color = RGB(150, 0, 150)    ' Purple
-                    Case "Not Found"
-                        .Font.Color = RGB(200, 0, 0)      ' Red
-                End Select
+                .HorizontalAlignment = xlLeft
+                .Font.ColorIndex = xlAutomatic
             End With
             
-            ' J22 — Done Count
+            ' J22 — Done count
             With .Cells(currentRow, 10)
                 .Value = totalDone
                 .NumberFormat = "0"
                 .HorizontalAlignment = xlCenter
             End With
             
-            ' P22 — Total TCIN count (entire sheet, no filter)
+            ' P22 — Total TCIN count (no filter)
             With .Cells(currentRow, 16)
                 .Value = totalTCINAll
                 .NumberFormat = "0"
@@ -535,14 +498,14 @@ Sub AnalyzeDueDates()
 NextLine:
     Loop
     
-    ' === Auto-fit all output columns ===
+    ' === Auto-fit columns ===
     modelWS.Columns(5).AutoFit    ' E - Project Name
     modelWS.Columns(6).AutoFit    ' F - Due Date
     modelWS.Columns(7).AutoFit    ' G - Launch Dates
     modelWS.Columns(8).AutoFit    ' H - Due type count filtered by date
-    modelWS.Columns(9).AutoFit    ' I - Agency / Internal
+    modelWS.Columns(9).AutoFit    ' I - Internal & Agency counts
     modelWS.Columns(10).AutoFit   ' J - Done Count
-    modelWS.Columns(16).AutoFit   ' P - Total TCIN (no filter)
+    modelWS.Columns(16).AutoFit   ' P - Total TCIN no filter
     
     MsgBox "Done! " & (currentRow - 22) & " rows processed in Model sheet (D22 to D" & (currentRow - 1) & ").", vbInformation
 
@@ -551,5 +514,7 @@ End Sub
 ```
 Column Reference
 ColWhat it showsLogicDFull input stringasset due>>ProjectA>>03/01/2025>>06/01/2025, 07/30/2025EProject nameParsed parts(1)FDue dateParsed parts(2)GLaunch datesParsed parts(3)HCount of rows where asset due = 03/01/2025 in ProjectAFiltered count on due column itselfIAgency / InternalFiltered by matching due date rowsJDone countFiltered by matching due date rowsPTotal TCIN entries in entire ProjectA sheet
+
+Internal: 22, Agency: 12
 ```
           
