@@ -34,30 +34,31 @@ Sub PopulateAllSheet()
     End If
     
     '==========================================
-    ' STEP 2: Validate current (active) sheet
-    '         and read Month / Week
+    ' STEP 2: Read Month / Week from "All"
+    '         sheet C22 and C23 as filter keys
     '==========================================
-    Dim wsCurrent As Worksheet
-    Set wsCurrent = ActiveSheet
+    Dim filterMonth As String
+    Dim filterWeek  As String
     
-    Dim monthName As String
-    Dim weekName  As String
+    filterMonth = SafeGetCellValue(wsAll, "C22")
+    filterWeek  = SafeGetCellValue(wsAll, "C23")
     
-    monthName = SafeGetCellValue(wsCurrent, "C22")
-    weekName  = SafeGetCellValue(wsCurrent, "C23")
-    
-    If monthName = "" Then _
-        MsgBox "Warning: C22 (Month) on the active sheet is empty.", vbExclamation, "Missing Value"
-    If weekName = "" Then _
-        MsgBox "Warning: C23 (Week) on the active sheet is empty.", vbExclamation, "Missing Value"
+    If filterMonth = "" Then
+        MsgBox "Warning: C22 (Month filter) on the 'All' sheet is empty." & vbNewLine & _
+               "No month filter will be applied.", vbExclamation, "Missing Filter Value"
+    End If
+    If filterWeek = "" Then
+        MsgBox "Warning: C23 (Week filter) on the 'All' sheet is empty." & vbNewLine & _
+               "No week filter will be applied.", vbExclamation, "Missing Filter Value"
+    End If
     
     '==========================================
     ' STEP 3: Check which sheets exist / missing
     '==========================================
-    Dim missingSheets   As String
-    Dim foundSheets     As String
-    Dim validSheets()   As Variant
-    Dim validCount      As Integer
+    Dim missingSheets As String
+    Dim foundSheets   As String
+    Dim validSheets() As Variant
+    Dim validCount    As Integer
     validCount    = 0
     missingSheets = ""
     foundSheets   = ""
@@ -136,7 +137,7 @@ Sub PopulateAllSheet()
         Dim wsSource As Worksheet
         Set wsSource = GetSheetSafely(ThisWorkbook, sheetName)
         
-        ' Double-check (safety net — sheet could theoretically be deleted mid-run)
+        ' Double-check safety net
         If wsSource Is Nothing Then
             GoTo NextSheet
         End If
@@ -146,17 +147,42 @@ Sub PopulateAllSheet()
         If milestoneColMap.exists(sheetName) Then milCol = milestoneColMap(sheetName)
         
         '--------------------------------------
-        ' Loop data rows E22:G50
+        ' Loop data rows 22 to 50
+        ' Column B = Month (match with All!C22)
+        ' Column C = Week  (match with All!C23)
+        ' Column E = Project Name
+        ' Column F = Milestone Date
+        ' Column G = Launch Date
         '--------------------------------------
         For r = 22 To 50
             
-            ' Safely read each cell
-            projName     = SafeGetCellValue(wsSource, "E" & r)
-            launchVal    = SafeGetCellValue(wsSource, "G" & r)
-            milestoneVal = SafeGetCellValue(wsSource, "F" & r)
+            ' Read the month and week values from source sheet for this row
+            Dim rowMonth As String
+            Dim rowWeek  As String
+            rowMonth = SafeGetCellValue(wsSource, "B" & r)
+            rowWeek  = SafeGetCellValue(wsSource, "C" & r)
+            
+            ' Read project name
+            projName = SafeGetCellValue(wsSource, "E" & r)
             
             ' Skip blank project names
             If projName = "" Then GoTo NextRow
+            
+            '--- FILTER: Match row month with All!C22 and row week with All!C23 ---
+            ' Only process rows where both month AND week match the filter
+            ' If filter values are empty, skip the filter check for that field
+            Dim monthMatch As Boolean
+            Dim weekMatch  As Boolean
+            
+            monthMatch = (filterMonth = "") Or (LCase(Trim(rowMonth)) = LCase(Trim(filterMonth)))
+            weekMatch  = (filterWeek = "")  Or (LCase(Trim(rowWeek))  = LCase(Trim(filterWeek)))
+            
+            ' Skip row if either month or week does not match
+            If Not monthMatch Or Not weekMatch Then GoTo NextRow
+            
+            ' --- Row passed the filter, read remaining values ---
+            launchVal    = SafeGetCellValue(wsSource, "G" & r)
+            milestoneVal = SafeGetCellValue(wsSource, "F" & r)
             
             '--- Register unique project ---
             If Not dictProjects.exists(projName) Then
@@ -211,9 +237,15 @@ NextSheet:
     ' STEP 6: Validate we actually found data
     '==========================================
     If projectCount = 0 Then
-        MsgBox "No project data was found in any of the source sheets." & vbNewLine & vbNewLine & _
-               "Please check that project names exist in column E (rows 22-50) " & _
-               "of the source sheets.", vbExclamation, "No Data Found"
+        MsgBox "No matching project data was found." & vbNewLine & vbNewLine & _
+               "Filter Applied:" & vbNewLine & _
+               "  Month (C22) : " & IIf(filterMonth = "", "(none)", filterMonth) & vbNewLine & _
+               "  Week  (C23) : " & IIf(filterWeek = "", "(none)", filterWeek) & vbNewLine & vbNewLine & _
+               "Please check that:" & vbNewLine & _
+               "  - Column B (rows 22-50) in source sheets contains month values" & vbNewLine & _
+               "  - Column C (rows 22-50) in source sheets contains week values" & vbNewLine & _
+               "  - Values match C22 and C23 of the 'All' sheet exactly.", _
+               vbExclamation, "No Matching Data Found"
         Exit Sub
     End If
     
@@ -289,13 +321,14 @@ NextSheet:
     '==========================================
     Dim summaryMsg As String
     summaryMsg = "Successfully completed!" & vbNewLine & vbNewLine & _
-                 "Month : " & monthName & vbNewLine & _
-                 "Week  : " & weekName & vbNewLine & vbNewLine & _
+                 "Filter Applied:" & vbNewLine & _
+                 "  Month (C22) : " & IIf(filterMonth = "", "(none)", filterMonth) & vbNewLine & _
+                 "  Week  (C23) : " & IIf(filterWeek = "", "(none)", filterWeek) & vbNewLine & vbNewLine & _
                  "Unique Projects Written : " & projectCount & vbNewLine & _
                  "Starting at row 25 in 'All' sheet." & vbNewLine & vbNewLine
     
     If missingSheets <> "" Then
-        summaryMsg = summaryMsg & "Skipped (not found):" & vbNewLine & missingSheets
+        summaryMsg = summaryMsg & "Skipped sheets (not found):" & vbNewLine & missingSheets
     End If
     
     MsgBox summaryMsg, vbInformation, "Done"
@@ -378,3 +411,13 @@ Private Function ValueExistsInList(existingList As String, checkVal As String) A
     Next p
     ValueExistsInList = False
 End Function
+```
+
+---
+
+**What changed and why:**
+
+The core filter logic added in **Step 5** reads two new values per row from each source sheet before processing:
+```
+rowMonth = Column B of that row  →  matched against All!C22
+rowWeek  = Column C of that row  →  matched against All!C23
