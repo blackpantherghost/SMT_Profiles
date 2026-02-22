@@ -1,3 +1,13 @@
+'==============================================
+' MODULE: modPopulateAll
+' Paste this entire block into a Standard Module
+'==============================================
+
+Option Explicit
+
+'==============================================
+' MAIN SUB
+'==============================================
 Sub PopulateAllSheet()
 
     '==========================================
@@ -59,6 +69,7 @@ Sub PopulateAllSheet()
     Dim foundSheets   As String
     Dim validSheets() As Variant
     Dim validCount    As Integer
+    
     validCount    = 0
     missingSheets = ""
     foundSheets   = ""
@@ -66,8 +77,9 @@ Sub PopulateAllSheet()
     ReDim validSheets(UBound(sheetList))
     
     Dim i As Integer
+    Dim ws As Worksheet
+    
     For i = 0 To UBound(sheetList)
-        Dim ws As Worksheet
         Set ws = GetSheetSafely(ThisWorkbook, CStr(sheetList(i)))
         If ws Is Nothing Then
             missingSheets = missingSheets & "  - " & CStr(sheetList(i)) & vbNewLine
@@ -104,12 +116,11 @@ Sub PopulateAllSheet()
     End If
     
     '==========================================
-    ' STEP 4: Build dictionaries for unique
-    '         projects, launch dates, milestones
+    ' STEP 4: Build dictionaries
     '==========================================
-    Dim dictProjects  As Object   ' Key: ProjectName  -> insertion index
-    Dim dictLaunch    As Object   ' Key: ProjectName  -> comma-separated launch dates
-    Dim dictMilestone As Object   ' Key: ProjectName|ColLetter -> comma-separated milestone dates
+    Dim dictProjects  As Object
+    Dim dictLaunch    As Object
+    Dim dictMilestone As Object
     
     Set dictProjects  = CreateObject("Scripting.Dictionary")
     Set dictLaunch    = CreateObject("Scripting.Dictionary")
@@ -127,64 +138,44 @@ Sub PopulateAllSheet()
     Dim milCol       As String
     Dim msKey        As String
     Dim r            As Long
+    Dim rowMonth     As String
+    Dim rowWeek      As String
+    Dim monthMatch   As Boolean
+    Dim weekMatch    As Boolean
     
     '==========================================
     ' STEP 5: Loop valid source sheets
     '==========================================
+    Dim wsSource As Worksheet
+    
     For i = 0 To validCount - 1
         sheetName = CStr(validSheets(i))
-        
-        Dim wsSource As Worksheet
         Set wsSource = GetSheetSafely(ThisWorkbook, sheetName)
         
-        ' Double-check safety net
         If wsSource Is Nothing Then
             GoTo NextSheet
         End If
         
-        ' Get milestone column for this sheet
         milCol = ""
         If milestoneColMap.exists(sheetName) Then milCol = milestoneColMap(sheetName)
         
-        '--------------------------------------
-        ' Loop data rows 22 to 50
-        ' Column B = Month (match with All!C22)
-        ' Column C = Week  (match with All!C23)
-        ' Column E = Project Name
-        ' Column F = Milestone Date
-        ' Column G = Launch Date
-        '--------------------------------------
         For r = 22 To 50
-            
-            ' Read the month and week values from source sheet for this row
-            Dim rowMonth As String
-            Dim rowWeek  As String
+        
             rowMonth = SafeGetCellValue(wsSource, "B" & r)
             rowWeek  = SafeGetCellValue(wsSource, "C" & r)
-            
-            ' Read project name
             projName = SafeGetCellValue(wsSource, "E" & r)
             
-            ' Skip blank project names
             If projName = "" Then GoTo NextRow
-            
-            '--- FILTER: Match row month with All!C22 and row week with All!C23 ---
-            ' Only process rows where both month AND week match the filter
-            ' If filter values are empty, skip the filter check for that field
-            Dim monthMatch As Boolean
-            Dim weekMatch  As Boolean
             
             monthMatch = (filterMonth = "") Or (LCase(Trim(rowMonth)) = LCase(Trim(filterMonth)))
             weekMatch  = (filterWeek = "")  Or (LCase(Trim(rowWeek))  = LCase(Trim(filterWeek)))
             
-            ' Skip row if either month or week does not match
             If Not monthMatch Or Not weekMatch Then GoTo NextRow
             
-            ' --- Row passed the filter, read remaining values ---
             launchVal    = SafeGetCellValue(wsSource, "G" & r)
             milestoneVal = SafeGetCellValue(wsSource, "F" & r)
             
-            '--- Register unique project ---
+            ' Register unique project
             If Not dictProjects.exists(projName) Then
                 dictProjects(projName) = projectCount
                 ReDim Preserve projectOrder(projectCount)
@@ -193,13 +184,13 @@ Sub PopulateAllSheet()
                 dictLaunch(projName) = ""
             End If
             
-            '--- Accumulate unique launch dates (supports multiple comma-separated) ---
+            ' Accumulate unique launch dates
             If launchVal <> "" Then
                 Dim launchParts As Variant
+                Dim lp          As Integer
+                Dim oneDate     As String
                 launchParts = Split(launchVal, ",")
-                Dim lp As Integer
                 For lp = 0 To UBound(launchParts)
-                    Dim oneDate As String
                     oneDate = Trim(launchParts(lp))
                     If oneDate <> "" Then
                         If Not ValueExistsInList(dictLaunch(projName), oneDate) Then
@@ -213,7 +204,7 @@ Sub PopulateAllSheet()
                 Next lp
             End If
             
-            '--- Accumulate unique milestone dates per project+column ---
+            ' Accumulate unique milestone dates
             If milCol <> "" And milestoneVal <> "" Then
                 msKey = projName & "|" & milCol
                 If Not dictMilestone.exists(msKey) Then dictMilestone(msKey) = ""
@@ -234,7 +225,7 @@ NextSheet:
     Next i
     
     '==========================================
-    ' STEP 6: Validate we actually found data
+    ' STEP 6: Validate data found
     '==========================================
     If projectCount = 0 Then
         MsgBox "No matching project data was found." & vbNewLine & vbNewLine & _
@@ -253,7 +244,7 @@ NextSheet:
     ' STEP 7: Clear old data in "All" sheet
     '==========================================
     Dim lastClearRow As Long
-    lastClearRow = 25 + projectCount + 20   ' buffer of 20 extra rows
+    lastClearRow = 25 + projectCount + 20
     
     On Error Resume Next
     wsAll.Range("B25:B" & lastClearRow).ClearContents
@@ -268,41 +259,35 @@ NextSheet:
     '==========================================
     ' STEP 8: Write data to "All" sheet
     '==========================================
-    Dim writeRow As Long
-    Dim idx      As Long
-    Dim s        As Integer
+    Dim writeRow    As Long
+    Dim idx         As Long
+    Dim s           As Integer
+    Dim cellAddr    As String
+    Dim existingVal As String
+    Dim newParts    As Variant
+    Dim np          As Integer
+    Dim nd          As String
     
     For idx = 0 To projectCount - 1
         projName = projectOrder(idx)
         writeRow = 25 + idx
         
-        ' --- B: Project Name ---
         SafeSetCellValue wsAll, "B" & writeRow, projName
-        
-        ' --- C: Launch Dates ---
         SafeSetCellValue wsAll, "C" & writeRow, dictLaunch(projName)
         
-        ' --- Milestone columns (only for valid sheets) ---
         For s = 0 To validCount - 1
             sheetName = CStr(validSheets(s))
             If milestoneColMap.exists(sheetName) Then
-                milCol = milestoneColMap(sheetName)
-                msKey  = projName & "|" & milCol
+                milCol   = milestoneColMap(sheetName)
+                msKey    = projName & "|" & milCol
                 If dictMilestone.exists(msKey) Then
-                    Dim cellAddr    As String
-                    Dim existingVal As String
                     cellAddr    = milCol & writeRow
                     existingVal = SafeGetCellValue(wsAll, cellAddr)
-                    
                     If existingVal = "" Then
                         SafeSetCellValue wsAll, cellAddr, dictMilestone(msKey)
                     Else
-                        ' Append only truly new dates
-                        Dim newParts As Variant
                         newParts = Split(dictMilestone(msKey), ",")
-                        Dim np As Integer
                         For np = 0 To UBound(newParts)
-                            Dim nd As String
                             nd = Trim(newParts(np))
                             If nd <> "" And Not ValueExistsInList(existingVal, nd) Then
                                 existingVal = existingVal & ", " & nd
@@ -343,18 +328,15 @@ GlobalErrorHandler:
            "Description  : " & Err.Description & vbNewLine & vbNewLine & _
            "The macro has stopped. Please check your data and try again.", _
            vbCritical, "Unexpected Error"
-    
     On Error Resume Next
-    Set wsAll     = Nothing
-    Set wsCurrent = Nothing
-    Set wsSource  = Nothing
+    Set wsAll    = Nothing
+    Set wsSource = Nothing
     On Error GoTo 0
 
 End Sub
 
 '==============================================
 ' HELPER: Safely get a worksheet from workbook
-'         Returns Nothing if sheet not found
 '==============================================
 Private Function GetSheetSafely(wb As Workbook, sheetName As String) As Worksheet
     Dim ws As Worksheet
@@ -366,7 +348,6 @@ End Function
 
 '==============================================
 ' HELPER: Safely read a cell value as String
-'         Returns "" on any error
 '==============================================
 Private Function SafeGetCellValue(ws As Worksheet, cellAddr As String) As String
     Dim result As String
@@ -381,7 +362,6 @@ End Function
 
 '==============================================
 ' HELPER: Safely write a value to a cell
-'         Silently skips on any error
 '==============================================
 Private Sub SafeSetCellValue(ws As Worksheet, cellAddr As String, val As String)
     On Error Resume Next
@@ -392,17 +372,17 @@ Private Sub SafeSetCellValue(ws As Worksheet, cellAddr As String, val As String)
 End Sub
 
 '==============================================
-' HELPER: Check if a value already exists in
-'         a comma-delimited string list
+' HELPER: Check if value exists in a
+'         comma-delimited string list
 '==============================================
 Private Function ValueExistsInList(existingList As String, checkVal As String) As Boolean
+    Dim parts As Variant
+    Dim p     As Integer
     If existingList = "" Then
         ValueExistsInList = False
         Exit Function
     End If
-    Dim parts As Variant
     parts = Split(existingList, ",")
-    Dim p As Integer
     For p = 0 To UBound(parts)
         If LCase(Trim(parts(p))) = LCase(Trim(checkVal)) Then
             ValueExistsInList = True
@@ -411,13 +391,3 @@ Private Function ValueExistsInList(existingList As String, checkVal As String) A
     Next p
     ValueExistsInList = False
 End Function
-```
-
----
-
-**What changed and why:**
-
-The core filter logic added in **Step 5** reads two new values per row from each source sheet before processing:
-```
-rowMonth = Column B of that row  →  matched against All!C22
-rowWeek  = Column C of that row  →  matched against All!C23
