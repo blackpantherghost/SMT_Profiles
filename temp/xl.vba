@@ -559,4 +559,340 @@ ColWhat it showsLogicDFull input stringasset due>>ProjectA>>03/01/2025>>06/01/20
 
 Internal: 22/100, Agency: 12/50
 ```
-          
+
+```````````````````````````````````````````````````````````````````````````````````````````````````````````````````````````````
+```````````````````````````````````````````````````````````````````````````````````````````````````````````````````````````````
+
+Sub AnalyzeDueDates()
+
+    Dim currentWB     As Workbook
+    Dim dataWB        As Workbook
+    Dim modelWS       As Worksheet
+    Dim dataWS        As Worksheet
+    
+    Dim allDataPath   As String
+    allDataPath = "C:\local\alldata.xlsx"
+    
+    Set currentWB = ThisWorkbook
+    Set modelWS   = currentWB.Sheets("Model")
+    
+    ' === Open alldata.xlsx if not already open ===
+    On Error Resume Next
+    Set dataWB = Workbooks(Dir(allDataPath))
+    On Error GoTo 0
+    If dataWB Is Nothing Then
+        Set dataWB = Workbooks.Open(allDataPath)
+    End If
+    
+    ' === Clear previous results in E:J and P from row 22 downward ===
+    Dim lastUsedRow As Long
+    lastUsedRow = modelWS.Cells(modelWS.Rows.Count, 4).End(xlUp).Row
+    If lastUsedRow >= 22 Then
+        modelWS.Range("E22:J" & lastUsedRow).ClearContents
+        modelWS.Range("E22:J" & lastUsedRow).Font.ColorIndex = xlAutomatic
+        modelWS.Range("P22:P" & lastUsedRow).ClearContents
+    End If
+    
+    ' === Loop through D22 downward ===
+    Dim currentRow As Long
+    currentRow = 22
+    
+    Do While True   ' Loop controlled entirely by Q and D column checks below
+    
+        ' ================================================================
+        ' VALIDATION 1 — Check Column Q of current row
+        '   Q = blank/empty → ABORT entire macro immediately
+        '   Q = "N"         → SKIP this row, move to next
+        '   Q = "Y"         → PROCEED with calculation for this row
+        '   Q = anything else → treat as invalid, skip row
+        ' ================================================================
+        Dim qVal As String
+        qVal = Trim(UCase(modelWS.Cells(currentRow, 17).Value))   ' Column Q = 17
+        
+        If qVal = "" Then
+            ' Blank Q cell — abort everything
+            MsgBox "Row " & currentRow & ": Column Q is empty. Processing aborted at this row." & _
+                   vbNewLine & "Total rows processed: " & (currentRow - 22), _
+                   vbExclamation, "Validation Failed — Empty Q Cell"
+            Exit Do
+            
+        ElseIf qVal = "N" Then
+            ' N — skip this row silently and move on
+            currentRow = currentRow + 1
+            GoTo NextLine
+            
+        ElseIf qVal <> "Y" Then
+            ' Anything other than Y or N — skip with warning in cell
+            modelWS.Cells(currentRow, 8).Value  = "Invalid Q: " & qVal
+            modelWS.Cells(currentRow, 9).Value  = "Invalid Q: " & qVal
+            modelWS.Cells(currentRow, 10).Value = "Invalid Q: " & qVal
+            modelWS.Cells(currentRow, 16).Value = "Invalid Q: " & qVal
+            modelWS.Range(modelWS.Cells(currentRow, 8), modelWS.Cells(currentRow, 10)).Font.Color = RGB(200, 0, 0)
+            modelWS.Cells(currentRow, 16).Font.Color = RGB(200, 0, 0)
+            currentRow = currentRow + 1
+            GoTo NextLine
+            
+        End If
+        ' If we reach here, Q = "Y" — proceed with full calculation
+        
+        ' ================================================================
+        ' VALIDATION 2 — Check Column D of current row
+        '   D = blank/empty → ABORT entire macro immediately
+        ' ================================================================
+        Dim dVal As String
+        dVal = Trim(modelWS.Cells(currentRow, 4).Value)   ' Column D = 4
+        
+        If dVal = "" Then
+            MsgBox "Row " & currentRow & ": Column D is empty. Processing aborted at this row." & _
+                   vbNewLine & "Total rows processed: " & (currentRow - 22), _
+                   vbExclamation, "Validation Failed — Empty D Cell"
+            Exit Do
+        End If
+        
+        ' ================================================================
+        ' PARSE D cell: due type>>ProjectName>>DueDate>>LaunchDates
+        ' ================================================================
+        Dim cellValue As String
+        cellValue = dVal
+        
+        Dim parts() As String
+        parts = Split(cellValue, ">>")
+        
+        If UBound(parts) < 2 Then
+            modelWS.Cells(currentRow, 5).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 6).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 7).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 8).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 9).Value  = "Parse Error"
+            modelWS.Cells(currentRow, 10).Value = "Parse Error"
+            modelWS.Cells(currentRow, 16).Value = "Parse Error"
+            modelWS.Range(modelWS.Cells(currentRow, 5), modelWS.Cells(currentRow, 10)).Font.Color = RGB(200, 0, 0)
+            modelWS.Cells(currentRow, 16).Font.Color = RGB(200, 0, 0)
+            currentRow = currentRow + 1
+            GoTo NextLine
+        End If
+        
+        Dim dueType     As String
+        Dim sheetName   As String
+        Dim dueDateStr  As String
+        Dim launchDates As String
+        
+        dueType     = Trim(parts(0))
+        sheetName   = Trim(parts(1))
+        dueDateStr  = Trim(parts(2))
+        launchDates = IIf(UBound(parts) >= 3, Trim(parts(3)), "")
+        
+        ' === Write extracted parts to E, F, G ===
+        modelWS.Cells(currentRow, 5).Value = sheetName
+        modelWS.Cells(currentRow, 5).HorizontalAlignment = xlLeft
+        modelWS.Cells(currentRow, 5).Font.ColorIndex = xlAutomatic
+        
+        modelWS.Cells(currentRow, 6).Value = dueDateStr
+        modelWS.Cells(currentRow, 6).HorizontalAlignment = xlCenter
+        modelWS.Cells(currentRow, 6).Font.ColorIndex = xlAutomatic
+        
+        modelWS.Cells(currentRow, 7).Value = launchDates
+        modelWS.Cells(currentRow, 7).HorizontalAlignment = xlLeft
+        modelWS.Cells(currentRow, 7).Font.ColorIndex = xlAutomatic
+        
+        ' === Validate due date ===
+        If Not IsDate(dueDateStr) Then
+            modelWS.Cells(currentRow, 8).Value  = "Invalid Date"
+            modelWS.Cells(currentRow, 9).Value  = "Invalid Date"
+            modelWS.Cells(currentRow, 10).Value = "Invalid Date"
+            modelWS.Cells(currentRow, 16).Value = "Invalid Date"
+            modelWS.Range(modelWS.Cells(currentRow, 8), modelWS.Cells(currentRow, 10)).Font.Color = RGB(200, 0, 0)
+            modelWS.Cells(currentRow, 16).Font.Color = RGB(200, 0, 0)
+            currentRow = currentRow + 1
+            GoTo NextLine
+        End If
+        
+        Dim dueDate As Date
+        dueDate = CDate(dueDateStr)
+        
+        ' === Find matching sheet in alldata.xlsx ===
+        On Error Resume Next
+        Set dataWS = dataWB.Sheets(sheetName)
+        On Error GoTo 0
+        
+        If dataWS Is Nothing Then
+            modelWS.Cells(currentRow, 8).Value  = "Sheet Not Found"
+            modelWS.Cells(currentRow, 9).Value  = "Sheet Not Found"
+            modelWS.Cells(currentRow, 10).Value = "Sheet Not Found"
+            modelWS.Cells(currentRow, 16).Value = "Sheet Not Found"
+            modelWS.Range(modelWS.Cells(currentRow, 8), modelWS.Cells(currentRow, 10)).Font.Color = RGB(200, 0, 0)
+            modelWS.Cells(currentRow, 16).Font.Color = RGB(200, 0, 0)
+            currentRow = currentRow + 1
+            GoTo NextLine
+        End If
+        
+        ' === Map column headers from B1:Q1 ===
+        Dim colIndex          As Integer
+        Dim dueColIdx         As Integer : dueColIdx = 0
+        Dim tcinColIdx        As Integer : tcinColIdx = 0
+        Dim assetStatusColIdx As Integer : assetStatusColIdx = 0
+        Dim agencyColIdx      As Integer : agencyColIdx = 0
+        
+        For colIndex = 2 To 17
+            Dim headerVal As String
+            headerVal = Trim(LCase(dataWS.Cells(1, colIndex).Value))
+            Select Case headerVal
+                Case LCase(dueType)      : dueColIdx = colIndex
+                Case "tcin"              : tcinColIdx = colIndex
+                Case "asset status"      : assetStatusColIdx = colIndex
+                Case "internal / agency" : agencyColIdx = colIndex
+            End Select
+        Next colIndex
+        
+        ' === Find last data row ===
+        Dim lastDataRow As Long
+        lastDataRow = dataWS.Cells(dataWS.Rows.Count, 2).End(xlUp).Row
+        
+        ' === P22 — Total TCIN count, no filter ===
+        Dim totalTCINAll As Long : totalTCINAll = 0
+        If tcinColIdx > 0 Then
+            Dim tcinRow As Long
+            For tcinRow = 2 To lastDataRow
+                If Trim(CStr(dataWS.Cells(tcinRow, tcinColIdx).Value)) <> "" Then
+                    totalTCINAll = totalTCINAll + 1
+                End If
+            Next tcinRow
+        End If
+        
+        ' === H22, I22, J22 — filtered by matching due date ===
+        Dim totalDueCount     As Long : totalDueCount = 0
+        Dim totalDone         As Long : totalDone = 0
+        Dim countAgency       As Long : countAgency = 0
+        Dim countAgencyDone   As Long : countAgencyDone = 0
+        Dim countInternal     As Long : countInternal = 0
+        Dim countInternalDone As Long : countInternalDone = 0
+        
+        Dim dataRow As Long
+        For dataRow = 2 To lastDataRow
+        
+            If dueColIdx > 0 Then
+                Dim cellDueVal As Variant
+                cellDueVal = dataWS.Cells(dataRow, dueColIdx).Value
+                
+                If IsDate(cellDueVal) Then
+                    If CLng(CDate(cellDueVal)) = CLng(dueDate) Then
+                    
+                        ' H22 — count rows matching due date in due type column
+                        totalDueCount = totalDueCount + 1
+                        
+                        ' Read Asset Status once for this row
+                        Dim assetStatusVal As String
+                        assetStatusVal = ""
+                        If assetStatusColIdx > 0 Then
+                            assetStatusVal = Trim(LCase(dataWS.Cells(dataRow, assetStatusColIdx).Value))
+                        End If
+                        
+                        ' J22 — total Done across all matching rows
+                        If assetStatusVal = "done" Then
+                            totalDone = totalDone + 1
+                        End If
+                        
+                        ' I22 — Agency and Internal with Done sub-counts
+                        If agencyColIdx > 0 Then
+                            Dim agencyVal As String
+                            agencyVal = Trim(LCase(dataWS.Cells(dataRow, agencyColIdx).Value))
+                            Select Case agencyVal
+                                Case "agency"
+                                    countAgency = countAgency + 1
+                                    If assetStatusVal = "done" Then
+                                        countAgencyDone = countAgencyDone + 1
+                                    End If
+                                Case "internal"
+                                    countInternal = countInternal + 1
+                                    If assetStatusVal = "done" Then
+                                        countInternalDone = countInternalDone + 1
+                                    End If
+                            End Select
+                        End If
+                        
+                    End If
+                End If
+            End If
+            
+        Next dataRow
+        
+        ' === Build I22 output — Internal: Done/Total, Agency: Done/Total ===
+        Dim agencyOutput As String
+        agencyOutput = "Internal: " & countInternalDone & "/" & countInternal & _
+                       ", Agency: " & countAgencyDone & "/" & countAgency
+        
+        ' === Write all results ===
+        With modelWS
+        
+            ' H22 — Due type count filtered by due date
+            With .Cells(currentRow, 8)
+                .Value = totalDueCount
+                .NumberFormat = "0"
+                .HorizontalAlignment = xlCenter
+                .Font.ColorIndex = xlAutomatic
+            End With
+            
+            ' I22 — Internal and Agency with Done sub-counts
+            With .Cells(currentRow, 9)
+                .Value = agencyOutput
+                .HorizontalAlignment = xlLeft
+                .Font.ColorIndex = xlAutomatic
+            End With
+            
+            ' J22 — Total Done count
+            With .Cells(currentRow, 10)
+                .Value = totalDone
+                .NumberFormat = "0"
+                .HorizontalAlignment = xlCenter
+                .Font.ColorIndex = xlAutomatic
+            End With
+            
+            ' P22 — Total TCIN no filter
+            With .Cells(currentRow, 16)
+                .Value = totalTCINAll
+                .NumberFormat = "0"
+                .HorizontalAlignment = xlCenter
+                .Font.ColorIndex = xlAutomatic
+            End With
+            
+        End With
+        
+        Set dataWS = Nothing
+        currentRow = currentRow + 1
+        
+NextLine:
+    Loop
+    
+    ' === Auto-fit columns ===
+    modelWS.Columns(5).AutoFit    ' E
+    modelWS.Columns(6).AutoFit    ' F
+    modelWS.Columns(7).AutoFit    ' G
+    modelWS.Columns(8).AutoFit    ' H
+    modelWS.Columns(9).AutoFit    ' I
+    modelWS.Columns(10).AutoFit   ' J
+    modelWS.Columns(16).AutoFit   ' P
+    
+    MsgBox "Done! " & (currentRow - 22) & " rows processed in Model sheet (D22 to D" & (currentRow - 1) & ").", _
+           vbInformation, "AnalyzeDueDates Complete"
+
+End Sub
+```
+
+---
+
+## Validation Flow for Every Row
+```
+Read Q column
+    │
+    ├── Q = BLANK  ──────────────────────→ ABORT with popup, stop entire macro
+    │
+    ├── Q = "N"    ──────────────────────→ SKIP row silently, move to next row
+    │
+    ├── Q = "Y"    ──────────────────────→ CHECK Column D next
+    │                                           │
+    │                                           ├── D = BLANK ──→ ABORT with popup
+    │                                           │
+    │                                           └── D has value → RUN full calculation
+    │
+    └── Q = anything else (e.g. "X", "y") ──→ Write red "Invalid Q: X" in H/I/J/P, skip row
+
