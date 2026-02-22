@@ -302,22 +302,23 @@ Sub AnalyzeDueDates()
         Set dataWB = Workbooks.Open(allDataPath)
     End If
     
-    ' === Clear previous results in G, H, I from row 22 downward ===
+    ' === Clear previous results in E:J and P from row 22 downward ===
     Dim lastUsedRow As Long
-    lastUsedRow = modelWS.Cells(modelWS.Rows.Count, 5).End(xlUp).Row  ' Based on col E
+    lastUsedRow = modelWS.Cells(modelWS.Rows.Count, 4).End(xlUp).Row  ' Based on col D
     If lastUsedRow >= 22 Then
-        modelWS.Range("G22:I" & lastUsedRow).ClearContents
-        modelWS.Range("G22:I" & lastUsedRow).Font.ColorIndex = xlAutomatic
+        modelWS.Range("E22:J" & lastUsedRow).ClearContents
+        modelWS.Range("E22:J" & lastUsedRow).Font.ColorIndex = xlAutomatic
+        modelWS.Range("P22:P" & lastUsedRow).ClearContents
     End If
     
-    ' === Loop through E22 downward, stop at first blank ===
+    ' === Loop through D22 downward, stop at first blank ===
     Dim currentRow As Long
     currentRow = 22
     
-    Do While Trim(modelWS.Cells(currentRow, 5).Value) <> ""   ' Column E = 5
+    Do While Trim(modelWS.Cells(currentRow, 4).Value) <> ""   ' Column D = 4
     
         Dim cellValue As String
-        cellValue = Trim(modelWS.Cells(currentRow, 5).Value)
+        cellValue = Trim(modelWS.Cells(currentRow, 4).Value)
         
         ' === Parse: due type>>ProjectName>>DueDate>>LaunchDates ===
         Dim parts() As String
@@ -325,26 +326,46 @@ Sub AnalyzeDueDates()
         
         ' Need at least 3 parts to proceed
         If UBound(parts) < 2 Then
-            modelWS.Cells(currentRow, 7).Value = "Parse Error"   ' G
-            modelWS.Cells(currentRow, 8).Value = "Parse Error"   ' H
-            modelWS.Cells(currentRow, 9).Value = "Parse Error"   ' I
+            modelWS.Cells(currentRow, 5).Value  = "Parse Error"   ' E
+            modelWS.Cells(currentRow, 6).Value  = "Parse Error"   ' F
+            modelWS.Cells(currentRow, 7).Value  = "Parse Error"   ' G
+            modelWS.Cells(currentRow, 8).Value  = "Parse Error"   ' H
+            modelWS.Cells(currentRow, 9).Value  = "Parse Error"   ' I
+            modelWS.Cells(currentRow, 10).Value = "Parse Error"   ' J
+            modelWS.Cells(currentRow, 16).Value = "Parse Error"   ' P
             currentRow = currentRow + 1
             GoTo NextLine
         End If
         
-        Dim dueType    As String
-        Dim sheetName  As String
-        Dim dueDateStr As String
+        Dim dueType      As String
+        Dim sheetName    As String
+        Dim dueDateStr   As String
+        Dim launchDates  As String
         
-        dueType    = Trim(parts(0))   ' e.g. "asset due"
-        sheetName  = Trim(parts(1))   ' e.g. "ProjectA"
-        dueDateStr = Trim(parts(2))   ' e.g. "03/01/2025"
+        dueType     = Trim(parts(0))                                ' e.g. "asset due"
+        sheetName   = Trim(parts(1))                                ' e.g. "ProjectA"
+        dueDateStr  = Trim(parts(2))                                ' e.g. "03/01/2025"
+        launchDates = IIf(UBound(parts) >= 3, Trim(parts(3)), "")  ' e.g. "06/01/2025, 07/30/2025"
+        
+        ' === Write extracted parts to E, F, G ===
+        '  E22 = ProjectName
+        '  F22 = Due Date
+        '  G22 = Launch Dates
+        modelWS.Cells(currentRow, 5).Value = sheetName    ' E - Project Name
+        modelWS.Cells(currentRow, 5).HorizontalAlignment = xlLeft
+        
+        modelWS.Cells(currentRow, 6).Value = dueDateStr   ' F - Due Date
+        modelWS.Cells(currentRow, 6).HorizontalAlignment = xlCenter
+        
+        modelWS.Cells(currentRow, 7).Value = launchDates  ' G - Launch Dates
+        modelWS.Cells(currentRow, 7).HorizontalAlignment = xlLeft
         
         ' Validate due date
         If Not IsDate(dueDateStr) Then
-            modelWS.Cells(currentRow, 7).Value = "Invalid Date"   ' G
-            modelWS.Cells(currentRow, 8).Value = "Invalid Date"   ' H
-            modelWS.Cells(currentRow, 9).Value = "Invalid Date"   ' I
+            modelWS.Cells(currentRow, 8).Value  = "Invalid Date"   ' H
+            modelWS.Cells(currentRow, 9).Value  = "Invalid Date"   ' I
+            modelWS.Cells(currentRow, 10).Value = "Invalid Date"   ' J
+            modelWS.Cells(currentRow, 16).Value = "Invalid Date"   ' P
             currentRow = currentRow + 1
             GoTo NextLine
         End If
@@ -358,9 +379,10 @@ Sub AnalyzeDueDates()
         On Error GoTo 0
         
         If dataWS Is Nothing Then
-            modelWS.Cells(currentRow, 7).Value = "Sheet Not Found"   ' G
-            modelWS.Cells(currentRow, 8).Value = "Sheet Not Found"   ' H
-            modelWS.Cells(currentRow, 9).Value = "Sheet Not Found"   ' I
+            modelWS.Cells(currentRow, 8).Value  = "Sheet Not Found"   ' H
+            modelWS.Cells(currentRow, 9).Value  = "Sheet Not Found"   ' I
+            modelWS.Cells(currentRow, 10).Value = "Sheet Not Found"   ' J
+            modelWS.Cells(currentRow, 16).Value = "Sheet Not Found"   ' P
             currentRow = currentRow + 1
             GoTo NextLine
         End If
@@ -392,9 +414,21 @@ Sub AnalyzeDueDates()
         Dim lastDataRow As Long
         lastDataRow = dataWS.Cells(dataWS.Rows.Count, 2).End(xlUp).Row
         
-        ' === Loop through data rows and tally counts ===
-        Dim totalTCIN     As Long   : totalTCIN = 0
-        Dim totalDone     As Long   : totalDone = 0
+        ' === Count total TCIN without any filter (Requirement 3 → P22) ===
+        Dim totalTCINAll As Long
+        totalTCINAll = 0
+        If tcinColIdx > 0 Then
+            Dim tcinRow As Long
+            For tcinRow = 2 To lastDataRow
+                If Trim(CStr(dataWS.Cells(tcinRow, tcinColIdx).Value)) <> "" Then
+                    totalTCINAll = totalTCINAll + 1
+                End If
+            Next tcinRow
+        End If
+        
+        ' === Loop through data rows and tally filtered counts ===
+        Dim totalTCIN     As Long    : totalTCIN = 0
+        Dim totalDone     As Long    : totalDone = 0
         Dim foundAgency   As Boolean : foundAgency = False
         Dim foundInternal As Boolean : foundInternal = False
         
@@ -409,21 +443,21 @@ Sub AnalyzeDueDates()
                 If IsDate(cellDueVal) Then
                     If CLng(CDate(cellDueVal)) = CLng(dueDate) Then
                     
-                        ' --- G output: Count non-blank TCIN entries ---
+                        ' --- H output: Count non-blank TCIN entries (filtered by due date) ---
                         If tcinColIdx > 0 Then
                             If Trim(CStr(dataWS.Cells(dataRow, tcinColIdx).Value)) <> "" Then
                                 totalTCIN = totalTCIN + 1
                             End If
                         End If
                         
-                        ' --- I output: Count "Done" in Asset Status ---
+                        ' --- J output: Count "Done" in Asset Status ---
                         If assetStatusColIdx > 0 Then
                             If Trim(LCase(dataWS.Cells(dataRow, assetStatusColIdx).Value)) = "done" Then
                                 totalDone = totalDone + 1
                             End If
                         End If
                         
-                        ' --- H output: Check Agency / Internal ---
+                        ' --- I output: Check Agency / Internal ---
                         If agencyColIdx > 0 Then
                             Dim agencyVal As String
                             agencyVal = Trim(LCase(dataWS.Cells(dataRow, agencyColIdx).Value))
@@ -451,21 +485,18 @@ Sub AnalyzeDueDates()
             agencyOutput = "Not Found"
         End If
         
-        ' === Write results ===
-        '  G = Total TCIN count
-        '  H = Agency / Internal
-        '  I = Done count
+        ' === Write all results ===
         With modelWS
         
-            ' G22 onwards — Total TCIN Count
-            With .Cells(currentRow, 7)
+            ' H22 onwards — Total TCIN Count (filtered by due date)
+            With .Cells(currentRow, 8)
                 .Value = totalTCIN
                 .NumberFormat = "0"
                 .HorizontalAlignment = xlCenter
             End With
             
-            ' H22 onwards — Agency / Internal (color coded)
-            With .Cells(currentRow, 8)
+            ' I22 onwards — Agency / Internal (color coded)
+            With .Cells(currentRow, 9)
                 .Value = agencyOutput
                 .HorizontalAlignment = xlCenter
                 Select Case agencyOutput
@@ -480,9 +511,16 @@ Sub AnalyzeDueDates()
                 End Select
             End With
             
-            ' I22 onwards — Done Count
-            With .Cells(currentRow, 9)
+            ' J22 onwards — Done Count
+            With .Cells(currentRow, 10)
                 .Value = totalDone
+                .NumberFormat = "0"
+                .HorizontalAlignment = xlCenter
+            End With
+            
+            ' P22 onwards — Total TCIN Count (NO filter, entire sheet)
+            With .Cells(currentRow, 16)
+                .Value = totalTCINAll
                 .NumberFormat = "0"
                 .HorizontalAlignment = xlCenter
             End With
@@ -495,37 +533,24 @@ Sub AnalyzeDueDates()
 NextLine:
     Loop
     
-    ' === Auto-fit output columns G, H, I ===
-    modelWS.Columns(7).AutoFit   ' G
-    modelWS.Columns(8).AutoFit   ' H
-    modelWS.Columns(9).AutoFit   ' I
+    ' === Auto-fit all output columns ===
+    modelWS.Columns(5).AutoFit    ' E - Project Name
+    modelWS.Columns(6).AutoFit    ' F - Due Date
+    modelWS.Columns(7).AutoFit    ' G - Launch Dates
+    modelWS.Columns(8).AutoFit    ' H - TCIN Count (filtered)
+    modelWS.Columns(9).AutoFit    ' I - Agency / Internal
+    modelWS.Columns(10).AutoFit   ' J - Done Count
+    modelWS.Columns(16).AutoFit   ' P - TCIN Count (no filter)
     
-    MsgBox "Done! " & (currentRow - 22) & " rows processed in Model sheet (E22 to E" & (currentRow - 1) & ").", vbInformation
+    MsgBox "Done! " & (currentRow - 22) & " rows processed in Model sheet (D22 to D" & (currentRow - 1) & ").", vbInformation
 
 End Sub
+
 ```
+Complete Column Map — Model Sheet
+ColumnContentSourceFilter AppliedDInput — full string asset due>>ProjectA>>03/01/2025>>...Written by previous macro—EExtracted — Project Name ProjectAParsed from D—FExtracted — Due Date 03/01/2025Parsed from D—GExtracted — Launch Dates 06/01/2025, 07/30/2025Parsed from D—HTCIN Countalldata.xlsx✅ Filtered by due date in DIAgency / Internalalldata.xlsx✅ Filtered by due date in DJDone Countalldata.xlsx✅ Filtered by due date in DPTotal TCIN Countalldata.xlsx❌ No filter — entire sheet
 
----
-
-## Exact Column Mapping
-
-| Column | Content | Starts At | Stops When |
-|--------|---------|-----------|------------|
-| **E** | Input — `asset due>>ProjectA>>03/01/2025>>...` | E22 | First blank E cell |
-| **G** | Output — Total TCIN count | G22 | Matches last E row |
-| **H** | Output — Agency / Internal | H22 | Matches last E row |
-| **I** | Output — Done count | I22 | Matches last E row |
-
----
-
-## Row Stop Logic
+Row Example
+D22E22F22G22H22I22J22P22asset due>>ProjectA>>03/01/2025>>06/01/2025, 07/30/2025ProjectA03/01/202506/01/2025, 07/30/202512
 ```
-E22 → has value → process → write G22, H22, I22
-E23 → has value → process → write G23, H23, I23
-...
-E47 → has value → process → write G47, H47, I47
-E48 → BLANK    → STOP
-
-
-
           
