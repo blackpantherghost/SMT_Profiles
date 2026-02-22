@@ -393,10 +393,10 @@ Sub AnalyzeDueDates()
             Dim headerVal As String
             headerVal = Trim(LCase(dataWS.Cells(1, colIndex).Value))
             Select Case headerVal
-                Case LCase(dueType)       : dueColIdx = colIndex
-                Case "tcin"               : tcinColIdx = colIndex
-                Case "asset status"       : assetStatusColIdx = colIndex
-                Case "internal / agency"  : agencyColIdx = colIndex
+                Case LCase(dueType)      : dueColIdx = colIndex
+                Case "tcin"              : tcinColIdx = colIndex
+                Case "asset status"      : assetStatusColIdx = colIndex
+                Case "internal / agency" : agencyColIdx = colIndex
             End Select
         Next colIndex
         
@@ -415,14 +415,19 @@ Sub AnalyzeDueDates()
             Next tcinRow
         End If
         
-        ' === H22, I22, J22 — filtered by matching due date ===
-        Dim totalDueCount As Long : totalDueCount = 0
-        Dim totalDone     As Long : totalDone = 0
-        Dim countAgency   As Long : countAgency = 0
-        Dim countInternal As Long : countInternal = 0
+        ' === H22, I22, J22 — all filtered by matching due date ===
+        Dim totalDueCount     As Long : totalDueCount = 0
+        Dim totalDone         As Long : totalDone = 0
+
+        ' --- 4 counters for I22 ---
+        Dim countAgency       As Long : countAgency = 0       ' Total rows where Internal/Agency = "Agency"
+        Dim countAgencyDone   As Long : countAgencyDone = 0   ' Of those, how many have Asset Status = "Done"
+        Dim countInternal     As Long : countInternal = 0     ' Total rows where Internal/Agency = "Internal"
+        Dim countInternalDone As Long : countInternalDone = 0 ' Of those, how many have Asset Status = "Done"
         
         Dim dataRow As Long
         For dataRow = 2 To lastDataRow
+        
             If dueColIdx > 0 Then
                 Dim cellDueVal As Variant
                 cellDueVal = dataWS.Cells(dataRow, dueColIdx).Value
@@ -430,34 +435,57 @@ Sub AnalyzeDueDates()
                 If IsDate(cellDueVal) Then
                     If CLng(CDate(cellDueVal)) = CLng(dueDate) Then
                     
-                        ' H22 — Count rows where due type column = due date
+                        ' H22 — Count every row matching due date in due type column
                         totalDueCount = totalDueCount + 1
                         
-                        ' J22 — Count "Done" in Asset Status
+                        ' Read Asset Status once for this row
+                        Dim assetStatusVal As String
+                        assetStatusVal = ""
                         If assetStatusColIdx > 0 Then
-                            If Trim(LCase(dataWS.Cells(dataRow, assetStatusColIdx).Value)) = "done" Then
-                                totalDone = totalDone + 1
-                            End If
+                            assetStatusVal = Trim(LCase(dataWS.Cells(dataRow, assetStatusColIdx).Value))
                         End If
                         
-                        ' I22 — Count Agency and Internal separately
+                        ' J22 — Total Done count across all matching rows
+                        If assetStatusVal = "done" Then
+                            totalDone = totalDone + 1
+                        End If
+                        
+                        ' I22 — Agency and Internal with their own Done sub-counts
                         If agencyColIdx > 0 Then
                             Dim agencyVal As String
                             agencyVal = Trim(LCase(dataWS.Cells(dataRow, agencyColIdx).Value))
+                            
                             Select Case agencyVal
-                                Case "agency"   : countAgency = countAgency + 1
-                                Case "internal" : countInternal = countInternal + 1
+                            
+                                Case "agency"
+                                    countAgency = countAgency + 1
+                                    ' Also check if this agency row is Done
+                                    If assetStatusVal = "done" Then
+                                        countAgencyDone = countAgencyDone + 1
+                                    End If
+                                    
+                                Case "internal"
+                                    countInternal = countInternal + 1
+                                    ' Also check if this internal row is Done
+                                    If assetStatusVal = "done" Then
+                                        countInternalDone = countInternalDone + 1
+                                    End If
+                                    
                             End Select
                         End If
                         
                     End If
                 End If
             End If
+            
         Next dataRow
         
         ' === Build I22 output text ===
+        ' Format: Internal: Done/Total, Agency: Done/Total
+        ' Example: Internal: 22/100, Agency: 12/50
         Dim agencyOutput As String
-        agencyOutput = "Internal: " & countInternal & ", Agency: " & countAgency
+        agencyOutput = "Internal: " & countInternalDone & "/" & countInternal & _
+                       ", Agency: " & countAgencyDone & "/" & countAgency
         
         ' === Write all results ===
         With modelWS
@@ -469,14 +497,14 @@ Sub AnalyzeDueDates()
                 .HorizontalAlignment = xlCenter
             End With
             
-            ' I22 — Internal and Agency counts as combined text
+            ' I22 — Internal Done/Total and Agency Done/Total
             With .Cells(currentRow, 9)
                 .Value = agencyOutput
                 .HorizontalAlignment = xlLeft
                 .Font.ColorIndex = xlAutomatic
             End With
             
-            ' J22 — Done count
+            ' J22 — Total Done count across all matching rows
             With .Cells(currentRow, 10)
                 .Value = totalDone
                 .NumberFormat = "0"
@@ -503,18 +531,32 @@ NextLine:
     modelWS.Columns(6).AutoFit    ' F - Due Date
     modelWS.Columns(7).AutoFit    ' G - Launch Dates
     modelWS.Columns(8).AutoFit    ' H - Due type count filtered by date
-    modelWS.Columns(9).AutoFit    ' I - Internal & Agency counts
-    modelWS.Columns(10).AutoFit   ' J - Done Count
+    modelWS.Columns(9).AutoFit    ' I - Internal & Agency with Done counts
+    modelWS.Columns(10).AutoFit   ' J - Total Done Count
     modelWS.Columns(16).AutoFit   ' P - Total TCIN no filter
     
     MsgBox "Done! " & (currentRow - 22) & " rows processed in Model sheet (D22 to D" & (currentRow - 1) & ").", vbInformation
 
 End Sub
+```
+
+---
+
+## How the 4 Counters Work Together
+
+For every row that matches the due date, the macro reads **both** the `Internal / Agency` column and `Asset Status` column **on the same row** and increments the right counter:
+```
+Row matches due date 03/01/2025?
+    ├── Internal/Agency = "Agency"  → countAgency++
+    │       └── Asset Status = "Done"? → countAgencyDone++
+    │
+    └── Internal/Agency = "Internal" → countInternal++
+            └── Asset Status = "Done"? → countInternalDone++
 
 ```
 Column Reference
 ColWhat it showsLogicDFull input stringasset due>>ProjectA>>03/01/2025>>06/01/2025, 07/30/2025EProject nameParsed parts(1)FDue dateParsed parts(2)GLaunch datesParsed parts(3)HCount of rows where asset due = 03/01/2025 in ProjectAFiltered count on due column itselfIAgency / InternalFiltered by matching due date rowsJDone countFiltered by matching due date rowsPTotal TCIN entries in entire ProjectA sheet
 
-Internal: 22, Agency: 12
+Internal: 22/100, Agency: 12/50
 ```
           
