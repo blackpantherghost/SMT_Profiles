@@ -56,7 +56,7 @@ Sub PopulateAllSheet()
     '==========================================
     Dim missingSheets   As String
     Dim foundSheets     As String
-    Dim validSheets()   As String
+    Dim validSheets()   As Variant
     Dim validCount      As Integer
     validCount    = 0
     missingSheets = ""
@@ -67,13 +67,13 @@ Sub PopulateAllSheet()
     Dim i As Integer
     For i = 0 To UBound(sheetList)
         Dim ws As Worksheet
-        Set ws = GetSheetSafely(ThisWorkbook, sheetList(i))
+        Set ws = GetSheetSafely(ThisWorkbook, CStr(sheetList(i)))
         If ws Is Nothing Then
-            missingSheets = missingSheets & "  - " & sheetList(i) & vbNewLine
+            missingSheets = missingSheets & "  - " & CStr(sheetList(i)) & vbNewLine
         Else
-            validSheets(validCount) = sheetList(i)
+            validSheets(validCount) = CStr(sheetList(i))
             validCount = validCount + 1
-            foundSheets = foundSheets & "  + " & sheetList(i) & vbNewLine
+            foundSheets = foundSheets & "  + " & CStr(sheetList(i)) & vbNewLine
         End If
         Set ws = Nothing
     Next i
@@ -131,14 +131,13 @@ Sub PopulateAllSheet()
     ' STEP 5: Loop valid source sheets
     '==========================================
     For i = 0 To validCount - 1
-        sheetName = validSheets(i)
+        sheetName = CStr(validSheets(i))
         
         Dim wsSource As Worksheet
         Set wsSource = GetSheetSafely(ThisWorkbook, sheetName)
         
         ' Double-check (safety net — sheet could theoretically be deleted mid-run)
         If wsSource Is Nothing Then
-            ' Log and skip silently — user was already warned
             GoTo NextSheet
         End If
         
@@ -151,7 +150,7 @@ Sub PopulateAllSheet()
         '--------------------------------------
         For r = 22 To 50
             
-            ' Safely read each cell — never crash on bad cell references
+            ' Safely read each cell
             projName     = SafeGetCellValue(wsSource, "E" & r)
             launchVal    = SafeGetCellValue(wsSource, "G" & r)
             milestoneVal = SafeGetCellValue(wsSource, "F" & r)
@@ -224,14 +223,14 @@ NextSheet:
     Dim lastClearRow As Long
     lastClearRow = 25 + projectCount + 20   ' buffer of 20 extra rows
     
-    On Error Resume Next    ' Ignore errors if columns don't exist
+    On Error Resume Next
     wsAll.Range("B25:B" & lastClearRow).ClearContents
     wsAll.Range("C25:C" & lastClearRow).ClearContents
     wsAll.Range("K25:K" & lastClearRow).ClearContents
     wsAll.Range("T25:T" & lastClearRow).ClearContents
     wsAll.Range("Z25:Z" & lastClearRow).ClearContents
     wsAll.Range("AF25:AF" & lastClearRow).ClearContents
-    wsAll.Range("AJ25:AJ" & lastClearRow).ClearContents  ' <-- Added for ImagingScenes
+    wsAll.Range("AJ25:AJ" & lastClearRow).ClearContents
     On Error GoTo GlobalErrorHandler
     
     '==========================================
@@ -253,7 +252,7 @@ NextSheet:
         
         ' --- Milestone columns (only for valid sheets) ---
         For s = 0 To validCount - 1
-            sheetName = validSheets(s)
+            sheetName = CStr(validSheets(s))
             If milestoneColMap.exists(sheetName) Then
                 milCol = milestoneColMap(sheetName)
                 msKey  = projName & "|" & milCol
@@ -312,7 +311,6 @@ GlobalErrorHandler:
            "The macro has stopped. Please check your data and try again.", _
            vbCritical, "Unexpected Error"
     
-    ' Clean up objects safely
     On Error Resume Next
     Set wsAll     = Nothing
     Set wsCurrent = Nothing
