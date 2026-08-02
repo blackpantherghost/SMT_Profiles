@@ -7,3 +7,56 @@ Prepare a 3dsMax script to do the following:
 2) if found then validate if any of the object have Multi/Sub-Object Material assigned then make a var obj_withMultimat to store the object list with material name
 3) validate if any object do not have multisubobject assigned then make a var obj_with_nonMultimat to store the object list with material name
 4) if obj_with_nonMultimat len is > 0 then apply Multi/Sub-Object Material where each object is having its own physical material with a maximum of 7 submaterial is allowed for each multisubobject
+
+Architected dual-application UV validation pipeline for studio workflow
+Architected dual-application UV validation pipeline for studio workflow
+Workflow: Auto-Detecting Out-of-Bounds UVs and Multiple UV Sets (3ds Max + Blender)
+1. Define the Validation Rules First
+Before building the check, agree with the pipeline/TD team on:
+
+UV bounds rule – Is any UV outside 0–1 a failure, or is UDIM tiling (e.g., 1001, 1002) allowed and only "stray" UVs outside intended tiles should flag?
+UV set rule – "More than 1" means anything beyond the default channel (Map Channel 1 in Max / "UVMap" in Blender). Decide if extra channels are ever legitimate (e.g., lightmap UVs) and should be whitelisted by name (e.g., "LightmapUV") rather than flagged.
+This distinction matters because both engines need a tolerance/exception list, not just a hard rule.
+
+2. 3ds Max Workflow
+A. Detecting UVs outside 0–1
+Add a Scene Audit utility to the Utilities panel (built once by the TD team) that iterates every Editable Poly/Mesh + UVW modifier stack in the scene.
+For each object, the utility reads the UV vertex data of the active map channel and computes the min/max U and V values.
+Any object where min < 0 or max > 1 (outside the allowed tile range from Step 1) is flagged.
+Flagged objects are:
+Assigned a custom User-Defined Property (e.g., UV_OutOfBounds = True), and
+Highlighted in Scene Explorer using a custom column/color filter so artists can instantly see offenders.
+For manual spot-checks, artists can drop an Unwrap UVW modifier and use Render UVW Template with the "0–1 tile boundary" overlay visible, or assign a checker/UDIM grid material and view in the viewport — anything tiling outside the first tile is visually obvious.
+B. Detecting multiple UV channels/sets
+Use the native Utilities > More > Channel Info tool — select an object and it lists every mapping channel (0 = vertex color, 1 = default UVs, 2+ = extra channels) present on the mesh.
+For scene-wide auditing, extend the same Scene Audit utility from Step A to query the NumMapChannels/MapSupport state per object.
+Any object reporting more than one active UV channel (excluding whitelisted channel names/numbers) gets tagged UV_MultiChannel = True and surfaced in Scene Explorer the same way.
+3. Blender Workflow
+A. Detecting UVs outside 0–1
+There's no single native "select islands outside 0–1" button, so pair two techniques:
+Visual QA: In the UV Editor, enable the UDIM Grid overlay (N-panel > View > UDIM Grid) or assign a checker/UV-Test material (TexTools add-on) — islands outside the first tile are immediately visible in the viewport/UV editor.
+Automated QA: A custom Scene Validation add-on/operator (built once, run from a shelf button) iterates all mesh objects, reads the active UV layer's coordinate bounds, and compares them against the allowed tile range from Step 1.
+Flag failing objects by writing a Custom Property on the object (e.g., uv_out_of_bounds = True) and/or moving them into a dedicated "QA_Failed_UV" collection in the Outliner for quick review.
+B. Detecting multiple UV maps
+Native check: select the object, open Object Data Properties (green triangle icon) > UV Maps panel — every entry beyond the default "UVMap" is an extra set.
+Automated check: the same Scene Validation operator counts UV layers per mesh object and flags any object with a count greater than 1 (excluding whitelisted layer names).
+Tag and collect flagged objects the same way as 3A (custom property + QA collection), so the report format matches the Max side.
+4. Unified Cross-App Pipeline Integration
+Since the studio works across both apps, standardize the output, not just the check:
+
+Trigger point: Run the validator as a mandatory pre-publish/pre-export step (shelf button, menu item, or hook into your publish tool — Shotgun/ShotGrid, Deadline, or in-house asset manager).
+Common report format: Both Max and Blender validators write out the same structured report (e.g., CSV/HTML/JSON) listing:
+Object name
+Scene/file
+Failure type (UV_OutOfBounds, UV_MultiChannel)
+Channel/UV set index or bounding values
+Blocking vs. warning: Configure publish to hard-block on unexpected failures, but allow an "Accept Exception" flag for intentional cases (UDIM assets, lightmap UV channel) so the same object isn't re-flagged every run.
+Visual tagging in-app: Use color-coded Scene Explorer (Max) and dedicated Outliner collections (Blender) so artists see problem objects without opening the report.
+Review cadence: TD/lead reviews the aggregated report before each milestone/asset handoff, and whitelists/exceptions get added back into Step 1's rule set so the tool improves over time.
+5. Summary Table
+Check	3ds Max Tool	Blender Tool
+UV bounds (0–1) >> Custom Scene Audit utility + UDIM/checker material visual QA >> Custom validation operator + UDIM Grid overlay/checker material
+Multiple UV sets	>> Channel Info utility (native) + Scene Audit utility for batch	>> UV Maps panel (native) + custom operator for batch
+Reporting	>> Scene Explorer tagging + CSV/HTML export	>> Outliner collection tagging + CSV/HTML export
+Integration point	>> Pre-publish hook >>	Pre-publish hook
+This keeps the actual bounds/channel-counting logic as an internal pipeline tool (built once by a TD), while every artist-facing step — visual QA, tagging, and reporting — is app-native and consistent across both packages.
