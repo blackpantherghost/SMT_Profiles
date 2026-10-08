@@ -67,7 +67,7 @@ def world_range(stage, path):
     return r
 
 
-def build(src, dst, pos, rotate, width_m, pivot):
+def build(src, dst, pos, rotate, width_m, pivot, style):
     work = tempfile.mkdtemp(prefix="faceanchor_")
     try:
         # 1. Unpack the source usdz so textures stay beside the layer.
@@ -95,15 +95,34 @@ def build(src, dst, pos, rotate, width_m, pivot):
         UsdGeom.SetStageUpAxis(w, UsdGeom.Tokens.y)
         UsdGeom.SetStageMetersPerUnit(w, 1.0)
 
-        anchor = UsdGeom.Xform.Define(w, "/FaceAnchor")
-        w.SetDefaultPrim(anchor.GetPrim())
-        ap = anchor.GetPrim()
-        ap.SetMetadata("apiSchemas",
-                       Sdf.TokenListOp.Create(prependedItems=["Preliminary_AnchoringAPI"]))
-        ap.CreateAttribute("preliminary:anchoring:type", Sdf.ValueTypeNames.Token,
-                           False, Sdf.VariabilityUniform).Set("face")
+        if style == "rc":
+            # Mimics the layout Reality Composer exports: Root / Scenes / Scene,
+            # with the anchoring token on the Scene prim.
+            root = UsdGeom.Xform.Define(w, "/Root")
+            w.SetDefaultPrim(root.GetPrim())
+            scenes = w.DefinePrim("/Root/Scenes", "Scope")
+            scenes.SetMetadata("kind", "sceneLibrary")
+            scene = UsdGeom.Xform.Define(w, "/Root/Scenes/Scene")
+            ap = scene.GetPrim()
+            ap.SetCustomDataByKey("sceneName", "Scene")
+            ap.SetCustomDataByKey("preliminary_collidesWithEnvironment", False)
+            ap.CreateAttribute("preliminary:anchoring:type",
+                               Sdf.ValueTypeNames.Token).Set("face")
+            base = "/Root/Scenes/Scene"
+        else:
+            anchor = UsdGeom.Xform.Define(w, "/FaceAnchor")
+            w.SetDefaultPrim(anchor.GetPrim())
+            ap = anchor.GetPrim()
+            ap.SetMetadata("apiSchemas",
+                           Sdf.TokenListOp.Create(prependedItems=["Preliminary_AnchoringAPI"]))
+            ap.CreateAttribute("preliminary:anchoring:type", Sdf.ValueTypeNames.Token,
+                               False, Sdf.VariabilityUniform).Set("face")
+            base = "/FaceAnchor"
+        anchor_path = ap.GetPath()
+        offset_path = base + "/Offset"
+        model_path_w = offset_path + "/Model"
 
-        offset = UsdGeom.Xform.Define(w, "/FaceAnchor/Offset")
+        offset = UsdGeom.Xform.Define(w, offset_path)
         t_op = offset.AddTranslateOp()
         r_op = offset.AddRotateXYZOp()
         s_op = offset.AddScaleOp()
@@ -113,7 +132,7 @@ def build(src, dst, pos, rotate, width_m, pivot):
 
         # Model prim only holds the reference + unit/up-axis correction, so the
         # original root transform (inside the reference) is never overwritten.
-        model = UsdGeom.Xform.Define(w, "/FaceAnchor/Offset/Model")
+        model = UsdGeom.Xform.Define(w, model_path_w)
         rel = os.path.relpath(src_layer, work).replace(os.sep, "/")
         refs = model.GetPrim().GetReferences()
         if src_stage.GetDefaultPrim():
@@ -127,7 +146,7 @@ def build(src, dst, pos, rotate, width_m, pivot):
         # 3. Optional resize to a real-world frame width (meters).
         scale = 1.0
         if width_m:
-            r0 = world_range(w, "/FaceAnchor/Offset/Model")
+            r0 = world_range(w, model_path_w)
             # width measured after user rotation, along X
             cur_w = r0.GetMax()[0] - r0.GetMin()[0]
             if cur_w <= 0:
@@ -136,7 +155,7 @@ def build(src, dst, pos, rotate, width_m, pivot):
             s_op.Set(Gf.Vec3f(scale, scale, scale))
 
         # 4. Place the chosen pivot of the (rotated, scaled) model at `pos`.
-        r1 = world_range(w, "/FaceAnchor/Offset/Model")
+        r1 = world_range(w, model_path_w)
         mid = r1.GetMidpoint()
         if pivot == "front":
             p = Gf.Vec3d(mid[0], mid[1], r1.GetMax()[2])
@@ -144,7 +163,7 @@ def build(src, dst, pos, rotate, width_m, pivot):
             p = Gf.Vec3d(mid[0], mid[1], mid[2])
         t_op.Set(Gf.Vec3d(*pos) - p)
 
-        final = world_range(w, "/FaceAnchor/Offset/Model")
+        final = world_range(w, model_path_w)
         size = final.GetMax() - final.GetMin()
         print(f"Final size (m): W={size[0]:.3f}  H={size[1]:.3f}  D={size[2]:.3f}  "
               f"(scale applied: {scale:.4f})")
@@ -169,9 +188,11 @@ def build(src, dst, pos, rotate, width_m, pivot):
             print("   ", n)
         out = Usd.Stage.Open(dst)
         dp = out.GetDefaultPrim()
+        ap_out = out.GetPrimAtPath(anchor_path)
         print("Default prim:", dp.GetPath() if dp else "NONE (bad)")
-        print("apiSchemas  :", dp.GetMetadata("apiSchemas"))
-        print("anchor type :", dp.GetAttribute("preliminary:anchoring:type").Get())
+        print("Anchor prim :", anchor_path)
+        print("apiSchemas  :", ap_out.GetMetadata("apiSchemas"))
+        print("anchor type :", ap_out.GetAttribute("preliminary:anchoring:type").Get())
         print(f"\nSaved: {dst}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -191,10 +212,13 @@ def main():
                     help="resize so overall width equals this many meters (e.g. 0.145)")
     ap.add_argument("--pivot", choices=["front", "center"], default="front",
                     help="front = centre of the front plane (best for glasses with arms)")
+    ap.add_argument("--style", choices=["rc", "api"], default="rc",
+                    help="rc = Reality Composer-style Root/Scenes/Scene layout (default); "
+                         "api = anchor on default prim via Preliminary_AnchoringAPI")
     a = ap.parse_args()
     if not os.path.exists(a.src):
         sys.exit("Input not found: " + a.src)
-    build(a.src, a.dst, a.pos, a.rotate, a.width_m, a.pivot)
+    build(a.src, a.dst, a.pos, a.rotate, a.width_m, a.pivot, a.style)
 
 
 if __name__ == "__main__":
